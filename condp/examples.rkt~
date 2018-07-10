@@ -1,0 +1,323 @@
+#lang racket
+
+(require "mk.rkt"
+         "pie.rkt"
+         "typechecker.rkt"
+         racket/engine)
+
+;; tests for straight evalaution
+(define forward-tests
+  (list
+   (λ ()
+     (run 1 q (pie '((claim/define plus
+                               (Π ([n Nat])
+                                  (Π ([m Nat])
+                                     Nat))
+                               (λ (n)
+                                 (λ (m)
+                                   (ind-Nat n
+                                            (λ (n) Nat)
+                                            m
+                                            (λ (n-1) (λ (res) (add1 res)))))))
+                     (claim/define double
+                                   (Π ([n Nat]) Nat)
+                                   (λ (n) (ind-Nat n
+                                                   (λ (n) Nat)
+                                                   zero
+                                                   (λ (a) (λ (r) (add1 (add1 r)))))))
+                     (claim/define double.2
+                                   (Π ([n Nat]) Nat)
+                                   (λ (n) ((plus n) n)))
+                     (double (double (add1 zero)))
+                     (double.2 (double (add1 zero))))
+                   q)))
+   (λ ()
+     (run 1 (q)
+          (pie '((claim/define num
+                               Nat
+                               (add1 (add1 (add1 (add1 (add1 (add1 (add1 (add1 zero)))))))))
+                 (claim/define foo
+                               (Π ([x Nat])
+                                  (Σ ([n Nat])
+                                     (= Nat x n)))
+                               (λ (n)
+                                 (ind-Nat n
+                                          (λ (n) (Σ ([m Nat]) (= Nat n m)))
+                                          (cons zero (same zero))
+                                          (λ (n-1)
+                                            (λ (res)
+                                              (cons (add1 n-1)
+                                                    (same (add1 n-1))))))))
+                 (foo num))
+               q)))
+   (λ ()
+     (run 1 q (pie '((claim/define T
+                                   U
+                                   (Σ ([x Nat])
+                                      (= Nat x x)))
+                     (claim/define foo₁
+                                   T
+                                   (cons (add1 (add1 zero))
+                                         (same (add1 (add1 zero)))))
+                     (claim/define foo₂
+                                   (Π ([x T])
+                                      Nat)
+                                   (λ (pr) (car pr)))
+                     (foo₂ foo₁))
+                   q)))
+   (λ ()
+     (run 1 q (pie '((claim/define f
+                                   (Π ([x Nat]) U)
+                                   (λ (n)
+                                     (= Nat n zero)))
+                     (claim/define g
+                                   (Π ([n Nat]) Nat)
+                                   (λ (n)
+                                     (ind-Nat n
+                                              (λ (n) Nat)
+                                              zero
+                                              (λ (z) (λ (r) r)))))
+                     (claim/define h
+                                   U
+                                   (Π ([x Nat]) (f (g x))))
+                     (claim/define i
+                                   (Π ([y Nat]) (f (g y)))
+                                   (λ (x)
+                                     (ind-Nat x
+                                              (λ (x) (= Nat (g x) zero))
+                                              (same zero)
+                                              (λ (a) (λ (r) r)))))
+                     (i (add1 (add1 (add1 zero)))))
+                   q)))
+   (λ ()
+     (run 1 q (pie '((claim/define bar₁
+                                   (Σ ([n U]) n) (cons Nat (add1 (add1 zero))))
+                     (claim/define bar₂
+                                   (Σ ([n U]) n) (cons Atom 'hello))
+                     (claim/define foo
+                                   (Π ([pr₁ (Σ ((_ (Σ ([_ U]) U))) Nat)])
+                                      Nat)
+                                   (λ (p) (add1 (cdr p))))
+                     (foo (the (Σ ([_ (Σ ([n U]) U)]) Nat)
+                               (cons (cons (car bar₁) (car bar₂)) (cdr bar₁)))))
+                   q)))
+   (λ ()
+     (run 1 (q)
+          (pie `((claim/define plus
+                               (Π ([n Nat])
+                                  (Π ([m Nat])
+                                     Nat))
+                               (λ (n)
+                                 (λ (m)
+                                   (ind-Nat n
+                                            (λ (n) Nat)
+                                            m
+                                            (λ (n-1) (λ (res) (add1 res)))))))
+                 (claim/define +-zero-l
+                               (Π ([x Nat])
+                                  (= Nat x ((plus zero) x)))
+                               (λ (n) (same n)))
+                 (claim/define +-zero-r
+                               (Π ([x Nat])
+                                  (= Nat x ((plus x) zero)))
+                               (λ (x)
+                                 (ind-Nat x
+                                          (λ (n) (= Nat n ((plus n) zero)))
+                                          (same zero)
+                                          (λ (n-1)
+                                            (λ (IH)
+                                              (ind-= IH
+                                                     (λ (?)
+                                                       (λ (_)
+                                                         (= Nat (add1 n-1)
+                                                            (add1 ?))))
+                                                     (same (add1 n-1)))))))))
+                            
+               '())))
+   (λ ()
+     (run 1 q (pie '(((the (Π ([y Nat]) (= Nat y y))
+                           (λ (x)
+                             (ind-Nat x
+                                      (λ (x) (= Nat x x))
+                                      (same zero)
+                                      (λ (x-1)
+                                        (λ (IH)
+                                          (ind-= IH
+                                                 (λ (?)
+                                                   (λ (_)
+                                                     (= Nat (add1 x-1)
+                                                        (add1 ?))))
+                                                 (same (add1 x-1))))))))
+                      zero))
+                   q)))
+   (λ ()
+     (run 1 q (pie '((the (Π ([x Nat]) (Σ ([e Atom]) (= Atom e e)))
+                          (λ (x)
+                            (ind-Nat x
+                                     (λ (x) (Σ ([e Atom]) (= Atom e e)))
+                                     (cons 'foo (same 'foo))
+                                     (λ (x-1)
+                                       (λ (IH)
+                                         (cons 'notzero
+                                               (ind-= (cdr IH)
+                                                      (λ (?)
+                                                        (λ (_)
+                                                          (= Atom 'notzero 'notzero)))
+                                                      (same 'notzero))))))))
+                     (add1 (add1 zero)))
+                   q)))))
+
+;;; tests for synthesis
+
+(define backwards-tests
+  (list
+   (λ ()
+     (run 1 (id id-pf)
+          (pie `((claim/define foo
+                               (Π ([X U])
+                                  (Π ([x X]) X))
+                               (λ (Y)
+                                 (λ (y)
+                                   y)))
+                 (claim/define foo-id
+                               (Π ([T U])
+                                  (Π ([y T])
+                                     (= T y ((foo T) y))))
+                               ,id-pf))
+               '())))
+   (λ ()
+     (run 1 (ty)
+          (pie `((claim/define +
+                               ,ty
+                               (λ (n)
+                                 (λ (m)
+                                   (ind-Nat n
+                                            (λ (n) Nat)
+                                            m
+                                            (λ (x) (λ (res) (add1 res)))))))
+                 (claim/define +-zero-l
+                               (Π ([n Nat])
+                                  (= Nat n ((+ zero) n)))
+                               (λ (n) (same n)))
+                 ((+ (add1 zero)) (add1 (add1 zero))))
+               '((the Nat (add1 (add1 (add1 zero))))))))
+   (λ ()
+     (run 20 (t b)
+          (pie `((claim/define +
+                               (Π ([n Nat]) (Π ([n Nat]) Nat))
+                               (λ (n)
+                                 (λ (m)
+                                   (ind-Nat ,t
+                                            (λ (n) Nat)
+                                            ,b
+                                            (λ (x) (λ (res) (add1 res)))))))
+                 ((+ (add1 zero)) (add1 (add1 zero)))
+                 ((+ zero) (add1 (add1 (add1 zero)))))
+               '((the Nat (add1 (add1 (add1 zero))))
+                 (the Nat (add1 (add1 (add1 zero))))))))
+   (λ ()
+     (run 1 (f pf q)
+          (pie `((claim/define f
+                               (Π ([n Nat])
+                                  (Π ([m Nat])
+                                     Nat))
+                               ,f)
+                 (claim/define f-comm
+                               (Π ([i Nat])
+                                  (Π ([j Nat])
+                                     (= Nat ((f i) j) ((f j) i))))
+                               ,pf))
+               q)))
+   (λ ()
+     (run 1 (s)
+          (pie `((claim/define +
+                               (Π ([_ Nat])
+                                  (Π ([_ Nat])
+                                     Nat))
+                               (λ (n)
+                                 (λ (m)
+                                   (ind-Nat n
+                                            (λ (n) Nat)
+                                            m
+                                            (λ (x) (λ (y) (add1 ,s)))))))
+                 ((+ (add1 zero)) (add1 zero))
+                 ((+ zero) zero))
+               '((the Nat (add1 (add1 zero)))
+                 (the Nat zero)))))
+   (λ ()
+     (run 1 q (pie '((claim/define plus
+                               (Π ([n Nat])
+                                  (Π ([m Nat])
+                                     Nat))
+                               (λ (n)
+                                 (λ (m)
+                                   (ind-Nat n
+                                            (λ (n) Nat)
+                                            m
+                                            (λ (n-1) (λ (res) (add1 res)))))))
+                     (claim/define double
+                                   (Π ([n Nat]) Nat)
+                                   (λ (n) (ind-Nat n
+                                                   (λ (n) Nat)
+                                                   zero
+                                                   (λ (a) (λ (r) (add1 (add1 r)))))))
+                     (claim/define double.2
+                                   (Π ([n Nat]) Nat)
+                                   (λ (n) ((plus n) n)))
+                     (double (double (add1 zero)))
+                     (double.2 (double (add1 zero))))
+                   q)))))
+
+(define small-tests
+  (list (λ ()
+          (run 1 (q r) (pie `((add1 (add1 ,q))) `(the Nat ,r))))
+        (λ ()
+          (run 1 (q r) (pie `((claim/define foo
+                                            (Π ([x Nat]) Atom)
+                                            (λ (n) 'hello))
+                              (foo (car ,q)))
+                            `((the ,r 'hello)))))
+        (λ ()
+          (run 1 (q r) (pie `((claim/define bar
+                                            (Σ ([x Nat]) Nat)
+                                            (cons (add1 zero) zero))
+                              (claim/define foo
+                                            (Π ([x ,q]) Atom)
+                                            (λ (x) 'hello))
+                              (foo bar))
+                            '((the Atom 'hello)))))
+        (λ ()
+          (run 1 (q T  r) (pie `(((the ,T (λ (x) x)) (add1 zero)))
+                            r)))))
+
+(define (run-many ths)
+  (map (λ (g)
+         (let ([ans (time (engine-run 1200000 (engine (λ (_) (g)))))])
+           (begin (if ans
+                      (displayln "successful finish")
+                      (displayln "did not finish in 20 minutes")))
+           ans))
+       ths))
+#;
+(run-many forward-tests)
+#;
+(run-many backwards-tests)
+
+
+
+
+(time (run 1 (f)
+           (pie `((claim/define foo
+                                (Π ([X U]) (Π ([x X]) X))
+                                (λ (X) (λ (x) x)))
+                 (claim/define bar
+                                (Π ([X U]) (Π ([x X]) X))
+                                ,f)
+                  (claim/define foo=bar
+                                (Π ([Z U])
+                                   (Π ([z Z])
+                                      (= Z ((foo Z) z)
+                                         ((bar Z) z))))
+                                (λ (A) (λ (a) (same a)))))
+                '())))
+

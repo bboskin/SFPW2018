@@ -1,0 +1,369 @@
+#lang racket
+
+(require "mk.rkt"
+         "helpers.rkt"
+         "tables.rkt")
+(provide valofo
+         valof-closuro
+         normalizo
+         read-backo
+         read-back-typo)
+
+(defrel (normalizo Γ τ exp o)
+  (fresh (v)
+    (valofo Γ exp v)
+    (read-backo Γ τ v o)))
+
+;;;;;;;;;;;;;;;;
+;;Tables used in substitution.rkt
+
+(defrel (valofo ρ exp v)
+  (gather
+   (inspect exp valofo-in in-mode)
+   (inspect v valofo-out)
+   (condp
+   ; The expressions
+   ['the
+    (fresh (τ e e-v t-v)
+      (== exp `(the ,τ ,e))
+      (== v `(THE ,t-v ,e-v))
+      (valofo ρ e e-v)
+      (valofo ρ τ t-v))]
+   ;; built-in symbols
+   ['zero (== exp 'zero) (== v 'ZERO)]
+   ['Atom (== exp 'Atom) (== v 'ATOM)]
+   ['Nat (== exp 'Nat) (== v 'NAT)]
+   ['U (== exp 'U) (== v 'UNIVERSE)]
+   ;; Variables
+   ['var (apply-ρ ρ exp v)]
+   ['var (fresh (T)
+             (apply-Γ ρ exp T)
+             (== v `(NEU ,T (VAR ,exp))))]
+   ['quote
+    (fresh (atom)
+      (== exp `(quote ,atom))
+      (== v `(ATOM ,atom)))]
+   ;; Trivial
+   ['Trivial (== exp 'Trivial) (== v 'TRIVIAL)]
+   ['sole (== exp 'sole) (== v 'SOLE)]
+   ;; Nats
+   ['add1
+    (fresh (n nV)
+      (== exp `(add1 ,n))
+      (valofo ρ n nV)
+      (== v `(ADD1 ,nV)))]
+   ['ind-Nat
+    (fresh (t m τ ba s tV mV bV^ bV sV T)
+      (== exp `(ind-Nat ,t ,m (the ,τ ,ba) ,s))
+      (valofo ρ t tV)
+      (valofo ρ m mV)
+      (valofo ρ ba bV^)
+      (valofo ρ τ T)
+      (== bV `(THE ,T ,bV^))
+      (valofo ρ s sV)
+      (do-ind-Nat tV mV bV sV v))]
+   ;; Pairs
+   ['Σ
+    (fresh (x A D Ao)
+      (== exp `(Σ ([,x ,A]) ,D))
+      (valofo ρ A Ao)
+      (== v `(SIGMA ,x ,Ao (CLOS ,ρ ,x ,D))))]
+   ['cons
+    (fresh (a d a^ d^)
+      (== exp `(cons ,a ,d))
+      (valofo ρ a a^)
+      (valofo ρ d d^)
+      (== v `(CONS ,a^ ,d^)))]
+   ['car
+    (fresh (pr pr^)
+      (== exp `(car ,pr))
+      (valofo ρ pr pr^)
+      (do-caro pr^ v))]
+   ['cdr
+    (fresh (pr pr^)
+      (== exp `(cdr ,pr))
+      (valofo ρ pr pr^)
+      (do-cdro pr^ v))]
+   ;; Equality
+   ['=
+    (fresh (X from to Xv fromv tov)
+      (== exp `(= ,X ,from ,to))
+      (valofo ρ X Xv)
+      (valofo ρ from fromv)
+      (valofo ρ to tov)
+      (== v `(EQUAL ,Xv ,fromv ,tov)))]
+   ['same
+    (fresh (val vV)
+      (== exp `(same ,val))
+      (valofo ρ val vV)
+      (== v `(SAME ,vV)))]
+   ['ind-=
+    (fresh (t m b tV mV bV)
+      (== exp `(ind-= ,t ,m ,b))
+      (valofo ρ t tV)
+      (valofo ρ m mV)
+      (valofo ρ b bV)
+      (do-ind-= ρ tV mV bV v))]
+   ;; Functions 
+   ['Π
+    (fresh (x A D Ao Do)
+      (== exp `(Π ([,x ,A]) ,D))
+      (valofo ρ A Ao)
+      (== v `(PI ,x ,Ao (CLOS ,ρ ,x ,D))))]
+   ['λ
+    (fresh (x b)
+      (== exp `(λ (,x) ,b))
+      (symbolo x)
+      (== v `(LAM ,x (CLOS ,ρ ,x ,b))))]
+   ['app
+    (fresh (rator rand rato rando)
+      (== exp `(,rator ,rand))
+      (valofo ρ rator rato)           
+      (valofo ρ rand rando)
+      (do-appo rato rando v))])))
+
+;; Helpers for valofo
+
+(defrel (valof-closuro clo v ans)
+  (fresh (ρ x e ρ^)
+    (== clo `(CLOS ,ρ ,x ,e))           
+    (extend-ρ ρ x v ρ^)
+    (valofo ρ^ e ans)))
+
+(defrel (do-appo f v o)
+  (conde
+   [(fresh (x c)
+      (== f `(LAM ,x ,c))
+      (valof-closuro c v o))]
+   [(fresh (x A c ne T)
+           (== f `(NEU (PI ,x ,A ,c) ,ne))
+           (valof-closuro c v T)
+           (== o `(NEU ,T (N-APP (NEU (PI ,x ,A ,c) ,ne) ,v))))]))
+
+;;;;;;;;;;;;;;;;
+(defrel (do-caro pr v)
+  (conde
+   [(fresh (a d)
+           (== pr `(CONS ,a ,d))
+           (== v a))]
+   [(fresh (x A D ne)
+           (== pr `(NEU (SIGMA ,x ,A ,D) ,ne))
+           (== v `(NEU ,A (CAR (NEU (SIGMA ,x ,A ,D) ,ne)))))]))
+
+(defrel (do-cdro pr v)
+  (conde
+   [(fresh (a d)
+           (== pr `(CONS ,a ,d))
+           (== v d))]
+   [(fresh (x A D D^ ne a)
+           (== pr `(NEU (SIGMA ,x ,A ,D) ,ne))           
+           (do-caro pr a)           
+           (valof-closuro D a D^)
+           (== v `(NEU ,D^ (CDR (NEU (SIGMA ,x ,A ,D) ,ne)))))]))
+
+;;;;;;;;;;;;;;
+(defrel (do-ind-Nat t m b s o)
+  (conde
+   [(fresh (τ) (== t 'ZERO) (== b `(THE ,τ ,o)))]
+   [(fresh (n res f^) (== t `(ADD1 ,n))
+           (do-ind-Nat n m b s res)
+           (do-appo s n f^)
+           (do-appo f^ res o))]
+   [(fresh (ne τ bas)
+           (== t `(NEU NAT ,ne))
+           (do-appo m t τ)
+           (== o `(NEU ,τ (IND-NAT ,t ,m ,b ,s))))]))
+
+;;;;;;;;;;;;;;;;;
+
+(defrel (do-ind-= ρ t m b o)
+  (conde
+   [(fresh (v f1 τ) (== t  `(SAME ,v))
+           (== o b))]
+   [(fresh (A from to ne f1 τ vars Tvar p Ao Fo To f2 τb)
+      (== t `(NEU (EQUAL ,A ,from ,to) ,ne))
+      (do-appo m to f1)
+      (do-appo f1 t τ)
+      (just-names ρ vars)
+      (freshen 'to vars Tvar)
+      (freshen 'p vars p)
+      (read-back-typo ρ A Ao)
+      (read-backo ρ A from Fo)
+      (read-backo ρ A to To)
+      (do-appo m from f2)
+      (do-appo f2 `(SAME ,from) τb)
+      (== o `(NEU ,τ
+                  (IND-=
+                   (NEU (EQUAL ,A ,from ,to) ,ne)
+                   (THE (PI ,Tvar ,A (CLOS ,ρ ,Tvar (Π ([,p (= ,Ao ,Fo ,To)]) U))) ,m)
+                   (THE ,τb ,b)))))]))
+
+
+(defrel (read-backo Γ τ v norm)
+  (gather
+   (inspect v read-back-v in-mode)
+   (inspect τ read-back-τ in-mode)
+   (inspect norm read-back-norm)
+   (condp
+     ;; Types
+     ['U
+      (== τ 'UNIVERSE)
+      (read-back-typo Γ v norm)]
+     ;; The
+     ['the
+      (fresh (t e tₒ eₒ)
+        (== v `(THE ,t ,e))
+        (== norm `(the ,tₒ ,eₒ))
+        (read-back-typo Γ t tₒ)
+        (read-backo Γ τ e eₒ))]
+     ;; Neutrals
+     ['neutral
+      (fresh (τ ne)
+        (== v `(NEU ,τ ,ne))
+        (read-back-neutral τ Γ ne norm))]
+     ;; Trivials
+     ['Trivial (== τ 'TRIVIAL) (== v 'SOLE) (== norm 'sole)]
+     ;; Atoms
+     ['Atom
+      (fresh (at)
+        (== τ 'ATOM)
+        (== v `(ATOM ,at))
+        (symbolo at)
+        (== norm `(quote ,at)))]
+     ;; Nats
+     ['Nat
+      (== τ 'NAT)
+      (conde
+        [(== v 'ZERO) (== norm 'zero)]
+        [(fresh (n nF) (== v `(ADD1 ,n))
+                (read-backo Γ 'NAT n nF)
+                (== norm `(add1 ,nF)))])]
+     ; Pairs
+     ['Σ
+      (fresh (x A c a a^ d d^ D)
+        (== τ `(SIGMA ,x ,A ,c))
+        (do-caro v a)
+        (read-backo Γ A a a^)
+        (valof-closuro c a D)
+        (do-cdro v d)
+        (read-backo Γ D d d^)
+        (== norm `(cons ,a^ ,d^)))]
+     ;; Equality
+     ['=
+      (fresh (X from to val vo)
+        (== τ `(EQUAL ,X ,from ,to))
+        (== v `(SAME ,val))
+        (read-backo Γ X val vo)
+        (== norm `(same ,vo)))]
+     ;; Functions
+     ['Π
+      (fresh (x A c z x^ vars Γ^ B b inner Av)
+        (== τ `(PI ,x ,A ,c))
+        (condu
+          [(fresh (y λc) (== v `(LAM ,y ,λc))
+                  (== z y))]
+          [(== z x)])
+        (symbolo z)
+        (just-names Γ vars)
+        (freshen z vars x^)
+        (extend-Γ Γ x^ A Γ^)
+        (valof-closuro c `(NEU ,A (VAR ,x^)) B)
+        (do-appo v `(NEU ,A (VAR ,x^)) b)
+        (read-backo Γ^ B b inner)
+        (== norm `(λ (,x^) ,inner)))])))
+
+(defrel (read-back-typo Γ v norm)
+  (gather
+   (inspect v RBT-v in-mode)
+   (inspect norm RBT-n)
+   (condp
+   ; Simple types
+   ['ATOM (== v 'ATOM) (== norm 'Atom)]
+   ['NAT (== v 'NAT) (== norm 'Nat)]
+   ['UNIVERSE (== v 'UNIVERSE) (== norm 'U)]
+   ['TRIVIAL (== v 'TRIVIAL) (== norm 'Trivial)]
+   ;; Sigma type
+   ['Σ
+    (fresh (x A c vars x^ A^ Dv D^ Γ^)
+      (== v `(SIGMA ,x ,A ,c))
+      (just-names Γ vars)
+      (freshen x vars x^)
+      (read-back-typo Γ A A^)
+      (extend-Γ Γ x^ A Γ^)
+      (valof-closuro c `(NEU ,A (VAR ,x^)) Dv)
+      (read-back-typo Γ^ Dv D^)
+      (== norm `(Σ ([,x^ ,A^]) ,D^)))]
+   ;; Equality Type
+   ['=
+    (fresh (X to from Xo too fromo) 
+      (== v `(EQUAL ,X ,from ,to))
+      (read-back-typo Γ X Xo)
+      (read-backo Γ X from fromo)
+      (read-backo Γ X to too)
+      (== norm `(= ,Xo ,fromo ,too)))]
+   ;; Function Types
+   ['Π
+    (fresh (x A c vars x^ A^ Dv D^ Γ^)
+      (== v `(PI ,x ,A ,c))
+      (just-names Γ vars)
+      (freshen x vars x^)
+      (read-back-typo Γ A A^)           
+      (extend-Γ Γ x^ A Γ^)
+      (valof-closuro c `(NEU ,A (VAR ,x^)) Dv)
+      (read-back-typo Γ^ Dv D^)
+      (== norm `(Π ([,x^ ,A^]) ,D^)))]
+   ['neutral
+    (fresh (ne)
+      (== v `(NEU UNIVERSE ,ne))
+      (read-back-neutral 'UNIVERSE Γ ne norm))])))
+
+(defrel (read-back-neutral τ Γ ne norm)
+  (gather
+   (inspect ne RBN-ne in-mode)
+   (condp
+   ['VAR
+    (fresh (s)
+      (== ne `(VAR ,s))
+      (== norm s))]
+   ['CAR
+    (fresh (pr τ-pr pr^)
+      (== ne `(CAR (NEU ,τ-pr ,pr)))
+      (read-back-neutral τ-pr Γ pr pr^)
+      (== norm `(car ,pr^)))]
+   ['CDR
+    (fresh (τ-pr pr pr^)
+      (== ne `(CDR (NEU ,τ-pr ,pr)))
+      (read-back-neutral τ-pr Γ pr pr^)
+      (== norm `(cdr ,pr^)))]
+   ['N-APP
+    (fresh (rat ran rato rano x A c T)
+      (== ne `(N-APP (NEU (PI ,x ,A ,c) ,rat) ,ran))
+      (read-back-neutral `(PI ,x ,A ,c) Γ rat rato)
+      (read-backo Γ A ran rano)
+      (read-back-typo Γ τ T)
+      (== norm `(the ,T (,rato ,rano))))]
+   ['IND-NAT
+    (fresh (t m b s to mo bo so T τB TB T1 T2 vars n-1 res Γ^ k-1)
+      (== ne `(IND-NAT (NEU NAT ,t) ,m (THE ,τB ,b) ,s))
+      (read-back-neutral 'NAT Γ t to)
+      (just-names Γ vars)
+      (freshen 'k-1 vars k-1)
+      (read-backo Γ `(PI ,k-1 NAT (CLOS ,Γ ,k-1 U)) m mo)
+      (read-backo Γ τB b bo)
+      (read-back-typo Γ τ T)
+      (read-back-typo Γ τB TB)
+      (freshen 'n-1 vars n-1)
+      (freshen 'res vars res)
+      (extend-Γ Γ n-1 'NAT Γ^)
+      (read-backo Γ `(PI ,n-1 NAT (CLOS ,Γ ,n-1 (Π ([,res (,mo ,n-1)])
+                                                   (,mo (add1 ,n-1))))) s so)
+      (== norm `(ind-Nat ,to ,mo (the ,TB ,bo) ,so)))]
+   ['IND-=
+    (fresh (A from to ne1 τm m τb b neo mo bo)
+      (== ne `(IND-= (NEU (EQUAL ,A ,from ,to) ,ne1)
+                     (THE ,τm ,m)
+                     (THE ,τb ,b)))
+      (read-back-neutral `(EQUAL ,A ,from ,to) Γ ne1 neo)
+      (read-backo Γ τm m mo)
+      (read-backo Γ τb b bo)
+      (== norm `(ind-= ,neo ,mo ,bo)))])))
