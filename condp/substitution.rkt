@@ -83,11 +83,11 @@
 (define (free-vars-table exp)
   (match exp
     [(? symbol?) '(var)]
-    [(? (exp-memv unary-ops)) '(unary)]
-    [(? (exp-memv binary-ops)) '(binary)]
-    [(? (exp-memv trinary-ops)) '(trinary)]
-    [(? (exp-memv dep-binders)) '(bind)]
-    [(? (exp-memv '(quote λ ind-Nat))) (list (car exp))]
+    [(? (exp-memv? unary-ops)) '(unary)]
+    [(? (exp-memv? binary-ops)) '(binary)]
+    [(? (exp-memv? trinary-ops)) '(trinary)]
+    [(? (exp-memv? dep-binders)) '(bind)]
+    [(? (exp-memv? '(quote λ ind-Nat))) (list (car exp))]
     [`(,rat ,ran) '(app)]
     [else free-vars-branches]))
 
@@ -122,37 +122,37 @@
             [(not-membero x vs-e)]
             [(not-membero y vs-a)])
           (== z y)
-          (substo x a e eᵣ)]
+          (substo a x e eᵣ)]
          [(membero x vs-e)
           (membero y vs-a)
           (fresh (fr e-new)
             (fresh-name fr)
             (== z fr)
-            (substo y fr e e-new)
-            (substo x a e-new eᵣ))]))]))
+            (substo fr y e e-new)
+            (substo a x e-new eᵣ))]))]))
 
-(defrel (subst-unary x a exp o)
+(defrel (subst-unary a x exp o)
   (fresh (tag e eᵣ)
     (== exp `(,tag ,e))
     (membero tag unary-ops)
     (== o `(,tag ,eᵣ))
-    (substo x a e eᵣ)))
+    (substo a x e eᵣ)))
 
-(defrel (subst-binary x a exp o)
+(defrel (subst-binary a x exp o)
   (fresh (tag e₁ e₂ e₁ᵣ e₂ᵣ)
     (== exp `(,tag ,e₁ ,e₂))
     (== o `(the ,e₁ᵣ ,e₂ᵣ))
-    (substo x a e₁ e₁ᵣ)
-    (substo x a e₂ e₂ᵣ)))
+    (substo a x e₁ e₁ᵣ)
+    (substo a x e₂ e₂ᵣ)))
 
-(defrel (subst-trinary x a exp o)
+(defrel (subst-trinary a x exp o)
   (fresh (tag e₁ e₂ e₃ e₁ᵣ e₂ᵣ e₃ᵣ)
     (== exp `(,tag ,e₁ ,e₂ ,e₃))
     (membero tag trinary-ops)
     (== o `(,tag ,e₁ᵣ ,e₂ᵣ ,e₃ᵣ))
-    (substo x a e₁ e₁ᵣ)
-    (substo x a e₂ e₂ᵣ)
-    (substo x a e₃ e₃ᵣ)))
+    (substo a x e₁ e₁ᵣ)
+    (substo a x e₂ e₂ᵣ)
+    (substo a x e₃ e₃ᵣ)))
 
 (defrel (subst-atom exp o)
   (fresh (s)
@@ -160,32 +160,32 @@
     (== exp `(quote ,s))
     (== exp o)))
 
-(defrel (subst-app x a exp o)
+(defrel (subst-app a x exp o)
   (fresh (f arg f^ arg^)
     (== exp `(,f ,arg))
     (non-reserved-Pie-fn f)
     (== o `(,f^ ,arg^))
-    (substo x a f f^)
-    (substo x a arg arg^)))
+    (substo a x f f^)
+    (substo a x arg arg^)))
 
-(defrel (subst-ind-Nat x a exp o)
+(defrel (subst-ind-Nat a x exp o)
   (fresh (t m b s tᵣ mᵣ bᵣ sᵣ)
     (== exp `(ind-Nat ,t ,m ,b ,s))
     (== o `(ind-Nat ,tᵣ ,mᵣ ,bᵣ ,sᵣ))
-    (substo x a t tᵣ)
-    (substo x a m mᵣ)
-    (substo x a b bᵣ)
-    (substo x a s sᵣ)))
+    (substo a x t tᵣ)
+    (substo a x m mᵣ)
+    (substo a x b bᵣ)
+    (substo a x s sᵣ)))
 
-(defrel (subst-dep x a exp o)
+(defrel (subst-dep a x exp o)
   (fresh (tag y T₁ T₁ᵣ T₂ z T₂ᵣ)
     (== exp `(,tag ([,y ,T₁]) ,T₂))
     (membero tag dep-binders)
     (== o `(,tag ([,z ,T₁ᵣ]) ,T₂ᵣ))
-    (substo x a T₁ T₁ᵣ)
+    (substo a x T₁ T₁ᵣ)
     (avoid-capture x y z a T₂ T₂ᵣ)))
 
-(defrel (subst-lambda x a exp o)
+(defrel (subst-lambda a x exp o)
   (fresh (y z b bᵣ b-vars a-vars)
     (== exp `(λ (,y) ,b))
     (== o `(λ (,z) ,bᵣ))
@@ -198,36 +198,36 @@
 (define (subst-in-table exp)
   (match exp
     [(? symbol?) '(here sym)]
-    [(? (exp-memv unary-ops)) '(unary)]
-    [(? (exp-memv binary-ops)) '(binary)]
-    [(? (exp-memv trinary-ops)) '(trinary)]
-    [(? (exp-memv '(quote ind-Nat λ))) (list (car exp))]
-    [(? (exp-memv dep-binders)) '(bind)]
+    [(? (exp-memv? unary-ops)) '(unary)]
+    [(? (exp-memv? binary-ops)) '(binary)]
+    [(? (exp-memv? trinary-ops)) '(trinary)]
+    [(? (exp-memv? '(quote ind-Nat λ))) (list (car exp))]
+    [(? (exp-memv? dep-binders)) '(bind)]
     [`(,rator ,rand) '(app)]
     [else '(use-out)]))
 
 (define (subst-out-table exp)
   (match exp
     [(? symbol?) '(here sym)]
-    [(? (exp-memv unary-ops)) '(here unary)]
-    [(? (exp-memv binary-ops)) '(here binary)]
-    [(? (exp-memv trinary-ops)) '(here trinary)]
-    [(? (exp-memv '(quote ind-Nat λ))) (list 'here (car exp))]
+    [(? (exp-memv? unary-ops)) '(here unary)]
+    [(? (exp-memv? binary-ops)) '(here binary)]
+    [(? (exp-memv? trinary-ops)) '(here trinary)]
+    [(? (exp-memv? '(quote ind-Nat λ))) (list 'here (car exp))]
     [`(,rator ,rand) '(here app)]
     [else subst-branches]))
 
-(defrel (substo x a exp o)
+(defrel (substo a x exp o)
   (condp
     ((exp subst-in-table in-mode)
      (o subst-out-table))
     [here (== exp x) (== o a)]
     [sym (symbolo exp) (=/= exp x) (== exp o)]
     [quote (subst-atom exp o)]
-    [λ (subst-lambda x a exp o)]
-    [bind (subst-dep x a exp o)]
-    [app (subst-app x a exp o)]
-    [unary (subst-unary x a exp o)]
-    [binary (subst-binary x a exp o)]
-    [trinary (subst-trinary x a exp o)]
-    [ind-Nat (subst-ind-Nat x a exp o)]))
+    [λ (subst-lambda a x exp o)]
+    [bind (subst-dep a x exp o)]
+    [app (subst-app a x exp o)]
+    [unary (subst-unary a x exp o)]
+    [binary (subst-binary a x exp o)]
+    [trinary (subst-trinary a x exp o)]
+    [ind-Nat (subst-ind-Nat a x exp o)]))
 

@@ -202,7 +202,7 @@
   (match exp
     [(? simple?) (list exp)]
     [(? symbol?) '(var)]
-    [(? (exp-memv non-symbol-exprs)) (list (car exp))]
+    [(? (exp-memv? non-symbol-exprs)) (list (car exp))]
     [`(,rat ,ran) '(app)]
     [(? var?) '(use-out)]))
 
@@ -494,7 +494,7 @@
 
 (define (RBN-ne v)
   (match v
-    [(? (exp-memv all-RBN)) `(,(car v))]
+    [(? (exp-memv? all-RBN)) `(,(car v))]
     [(? var?) all-RBN]
     [else '()]))
 

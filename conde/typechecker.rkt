@@ -92,7 +92,7 @@
     (synth Γ pr `(the (Σ ([,x ,A]) ,D) ,prₒ))
     (valofo Γ A τ-A)
     (normalizo Γ τ-A `(car ,prₒ) a)
-    (substo x a D D^)
+    (substo a x D D^)
     (valofo Γ D^ D-v)
     (normalizo Γ D-v `(cdr ,prₒ) norm)))
 
@@ -127,7 +127,7 @@
     (non-reserved-Pie-symbol x)
     (synth Γ f `(the (Π ([,x ,Arg]) ,R) ,fₒ))
     (check Γ arg Arg argₒ)
-    (substo x argₒ R Rₒ)
+    (substo argₒ x R Rₒ)
     (valofo Γ Rₒ Rₒ-v)
     (normalizo Γ Rₒ-v `(,fₒ ,argₒ) norm)))
 
@@ -164,7 +164,7 @@
     (non-reserved-Pie-symbol x)
     (== o `(cons ,aₒ ,dₒ))
     (check Γ a A aₒ)
-    (substo x aₒ D Dₒ)
+    (substo aₒ x D Dₒ)
     (check Γ d Dₒ dₒ)))
 
 (defrel (check-λ Γ exp τ o)
@@ -174,7 +174,7 @@
     (== τ `(Π ([,y ,Arg]) ,R))
     (non-reserved-Pie-symbol y)
     (== o `(λ (,x) ,rₒ))
-    (substo y x R R^)
+    (substo x y R R^)
     (valofo Γ Arg Argᵥ)
     (extend-Γ Γ x Argᵥ Γ^)
     (check Γ^ r R^ rₒ)))
@@ -269,7 +269,7 @@
     (≡-type Γ A1 A2)
     (valofo Γ A1 Aᵥ)
     (extend-Γ Γ x Aᵥ Γ^)
-    (substo y x D2 D2^)
+    (substo x y D2 D2^)
     (≡-type Γ^ D1 D2^)))
 
 (defrel (≡-type-= Γ e1 e2)
@@ -331,7 +331,7 @@
     (≡ Γ 'U A1 A2)
     (valofo Γ A1 Aᵥ)
     (extend-Γ Γ x Aᵥ Γ^)
-    (substo y x D2 D2^)
+    (substo x y D2 D2^)
     (≡ Γ^ 'U D1 D2^)))
 
 (defrel (≡-cons Γ τ e1 e2)
@@ -340,7 +340,7 @@
     (== e2 `(cons ,a2 ,d2))
     (== τ `(Σ ([,x ,A]) ,D))
     (≡ Γ A a1 a2)
-    (substo x a1 D D^)
+    (substo a1 x D D^)
     (≡ Γ D^ d1 d2)))
 
 (defrel (≡-car Γ τ e1 e2)
@@ -364,7 +364,7 @@
     (≡ Γ `(Σ ([,x ,A]) ,D) pr1 pr2)
     (valofo Γ A A-v)
     (normalizo Γ A-v `(car ,pr1) a)
-    (substo x a D τ)))
+    (substo a x D τ)))
 
 (defrel (≡–Σ-η2 Γ τ e1 e2)
   (fresh (a1 d a2 x A Aᵥ D Γ^)
@@ -373,7 +373,7 @@
     (valofo Γ A Aᵥ)
     (extend-Γ Γ x Aᵥ Γ^)
     (≡ Γ^ D d e2)
-    (substo x a2 D τ)))
+    (substo a2 x D τ)))
 
 (defrel (≡-Σ-η Γ τ e1 e2)
   (fresh (pr2)
@@ -440,8 +440,8 @@
     (== τ `(Π ([,z ,Arg]) ,R))
     (valofo Γ Arg Argᵥ)
     (extend-Γ Γ x Argᵥ Γ^)
-    (substo y x r2 r2^)
-    (substo z x R R^)
+    (substo x y r2 r2^)
+    (substo x z R R^)
     (≡ Γ^ R^ r1 r2^)))
 
 (defrel (≡-app Γ τ e1 e2)
@@ -449,7 +449,7 @@
     (== e1 `(,f1 ,arg1))
     (== e2 `(,f2 ,arg2))
     (≡ Γ A arg1 arg2)
-    (substo x arg1 R τ)
+    (substo arg1 x R τ)
     (≡ Γ `(Π ([,x ,A]) ,R) f1 f2)))
 
 (defrel (≡-Π-β Γ τ e1 e2)
@@ -457,13 +457,13 @@
     (== e1 `((λ (,x) ,r1) ,arg1))
     (≡ Γ Arg arg1 arg2)
     (symbolo y)
-    (substo y arg2 r2 e2)
-    (substo y x r2 r2^)
+    (substo arg2 y r2 e2)
+    (substo x y r2 r2^)
     (valofo Γ arg2 arg2-v)
     (extend-Γ Γ x arg2-v Γ^)
     (≡ Γ^ R r1 r2^)
     (symbolo z)
-    (substo z arg2 R τ)))
+    (substo arg2 z R τ)))
 
 (defrel (≡-Π-η Γ τ e1 e2)
   (fresh (x f2 vars y Arg R)

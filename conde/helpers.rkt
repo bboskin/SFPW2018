@@ -22,13 +22,7 @@
          free-in-ρ
          just-names
          freshen
-         fresh-name
-
-         exp-memv
-         get-constructors
-         all-exprs
-         non-symbol-exprs
-         simple?)
+         fresh-name)
 
 ;; simple list ops
 (defrel (membero x ls)
@@ -192,31 +186,4 @@
 
 (defrel (fresh-name o)
   (== o (gensym 'tmp)))
-
-
-;; For relevance functions
-
-(define all-exprs
-  '(var the zero sole Nat Trivial Atom U quote add1 app
-        same λ cons car cdr ind-Nat ind-= Π Σ =))
-(define symbol-exprs
-  '(zero sole Atom Nat Trivial U))
-(define non-symbol-exprs
-  '(the quote add1 same λ cons car cdr ind-Nat ind-= Π Σ =))
-(define ((exp-memv ls) e)
-  (and (pair? e) (memv (car e) ls)))
-
-(define simple? (λ (x) (memv x symbol-exprs)))
-
-(define (get-constructors τ)
-  (match τ
-    ['Atom '(quote)]
-    ['Trivial '(sole)]
-    ['Nat '(zero add1)]
-    ['U '(Trivial Atom Nat Π Σ =)]
-    [`(Π ([,x ,A]) ,R) '(λ)]
-    [`(Σ ([,x ,A]) ,D) '(cons)]
-    [`(= ,X ,from ,to) '(same)]
-    [else '()]))
-
 

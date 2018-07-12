@@ -24,7 +24,7 @@
          freshen
          fresh-name
 
-         exp-memv
+         exp-memv?
          get-constructors
          all-exprs
          non-symbol-exprs
@@ -203,7 +203,7 @@
   '(zero sole Atom Nat Trivial U))
 (define non-symbol-exprs
   '(the quote add1 same λ cons car cdr ind-Nat ind-= Π Σ =))
-(define ((exp-memv ls) e)
+(define ((exp-memv? ls) e)
   (and (pair? e) (memv (car e) ls)))
 
 (define simple? (λ (x) (memv x symbol-exprs)))
