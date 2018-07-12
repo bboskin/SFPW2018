@@ -18,7 +18,7 @@
   (== o `(the ,T ,e)))
 
 (defrel (synth-var Γ exp o)
-  (not-reserved-symbol exp)
+  (non-reserved-Pie-symbol exp)
   (fresh (τ-v τ v)
     (apply-Γ Γ exp τ-v)
     (read-back-typo Γ τ-v τ)
@@ -70,7 +70,7 @@
 (defrel ((synth-dep-binder tag) Γ exp o)
   (fresh (x A D Ao Γ^ Do Ao-v)
     (== exp `(,tag ([,x ,A]) ,D))
-    (not-reserved-symbol x)
+    (non-reserved-Pie-symbol x)
     (== o `(the U (,tag ([,x ,Ao]) ,Do)))
     (check Γ A 'U Ao)
     (valofo Γ Ao Ao-v)
@@ -123,8 +123,8 @@
   (fresh (f arg x Arg R fₒ argₒ Rₒ Rₒ-v norm)
     (== exp `(,f ,arg))
     (== o `(the ,Rₒ ,norm))
-    (not-reserved-fn f)
-    (not-reserved-symbol x)
+    (non-reserved-Pie-fn f)
+    (non-reserved-Pie-symbol x)
     (synth Γ f `(the (Π ([,x ,Arg]) ,R) ,fₒ))
     (check Γ arg Arg argₒ)
     (substo x argₒ R Rₒ)
@@ -161,29 +161,7 @@
        [(? complex-type?) '(the)]
        [(? var?) all-exprs])]
     [else '()]))
-#;
-(defrel (synth Γ exp o)
-  (gather
-   (inspect exp synth-exp-table in-mode)
-   (inspect o synth-out-table)
-   (condp
-     [var (synth-var Γ exp o)] ;; Hypothesis
-     [the (synth-the Γ exp o)] ;; The
-     [Atom ((synth-simple 'Atom 'U) Γ exp o)] ;; UI-1    
-     [quote (synth-quote Γ exp o)] ;; AtomI-tick
-     [Nat ((synth-simple 'Nat 'U) Γ exp o)] ;; UI-9
-     [zero ((synth-simple 'zero 'Nat) Γ exp o)] ;; NatI-1
-     [add1 (synth-add1 Γ exp o)] ;; NatI-2
-     [ind-Nat (synth-ind-Nat Γ exp o)] ;; NatE-4
-     [Trivial ((synth-simple 'Trivial 'U) Γ exp o)] ;; UI-14
-     [sole ((synth-simple 'sole 'Trivial) Γ exp o)] ;; TrivI
-     [Σ ((synth-dep-binder 'Σ) Γ exp o)] ;; UI-2
-     [car (synth-car Γ exp o)] ;; ΣE-1
-     [cdr (synth-cdr Γ exp o)] ;; ΣE-2
-     [Π ((synth-dep-binder 'Π) Γ exp o)] ;; UI-5
-     [= (synth-= Γ exp o)] ;; UI-12
-     [ind-= (synth-ind-= Γ exp o)] ;; EQE-5
-     [app (synth-app Γ exp o)]))) ;; Fun-E-1
+
 
 (defrel (synth Γ exp o)
   (condp
@@ -205,7 +183,7 @@
     [Π ((synth-dep-binder 'Π) Γ exp o)] ;; UI-5
     [= (synth-= Γ exp o)] ;; UI-12
     [ind-= (synth-ind-= Γ exp o)] ;; EQE-5
-    [app (synth-app Γ exp o)]))
+    [app (synth-app Γ exp o)])) ;; Fun-E-1 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;
@@ -216,7 +194,7 @@
   (fresh (a d x A D aₒ Dₒ dₒ)
     (== exp `(cons ,a ,d))
     (== τ `(Σ ([,x ,A]) ,D))
-    (not-reserved-symbol x)
+    (non-reserved-Pie-symbol x)
     (== o `(cons ,aₒ ,dₒ))
     (check Γ a A aₒ)
     (substo x aₒ D Dₒ)
@@ -225,9 +203,9 @@
 (defrel (check-λ Γ exp τ o)
   (fresh (x r y Arg R R^ Γ^ rₒ Argᵥ)
     (== exp `(λ (,x) ,r))
-    (not-reserved-symbol x)
+    (non-reserved-Pie-symbol x)
     (== τ `(Π ([,y ,Arg]) ,R))
-    (not-reserved-symbol y)
+    (non-reserved-Pie-symbol y)
     (== o `(λ (,x) ,rₒ))
     (substo y x R R^)
     (valofo Γ Arg Argᵥ)
@@ -290,18 +268,6 @@
     [(? var?) '(use-out)]
     [else '(switch-expr)]))
 
-#;
-(defrel (check Γ exp τ o)
-  (gather
-   (inspect `(,τ . ,o) check-out-table)
-   (inspect exp check-expr-table in-mode)
-   (condp
-     [cons (check-cons Γ exp τ o)] ;; ΣI
-     [λ (check-λ Γ exp τ o)] ;; FunI-1
-     [same (check-= Γ exp τ o)] ;; EqI
-     [switch-expr (switch-expr Γ exp τ o)] ;; Switch
-     [switch-τ (switch-τ Γ exp τ o)]))) ;; Switch
-
 
 (defrel (check Γ exp τ o)
   (condp
@@ -348,20 +314,6 @@
     [(? var?) `(switch . ,(get-constructors 'U))]
     [else '(switch)]))
 
-#;
-(defrel (type Γ τ o)
-  (gather
-   (inspect τ type-table in-mode)
-   (condp
-     [U (type-id 'U τ o)] ;; UF
-     [Nat (type-id 'Nat τ o)] ;; NatF
-     [Atom (type-id 'Atom τ o)] ;; AtomF
-     [Trivial (type-id 'Trivial τ o)] ;; TrivialF
-     [Π (type-dep-binder 'Π Γ τ o)] ;; FunF-1
-     [Σ (type-dep-binder 'Σ Γ τ o)] ;; ΣF-1
-     [= (type-= Γ τ o)] ;; EQ-F
-     [switch (check Γ τ 'U o)]))) ;; EL
-
 (defrel (type Γ τ o)
   (condp
     ((τ type-table in-mode))
@@ -407,22 +359,6 @@
     [(? complex-type?) (list (car exp))]
     [(? var?) '(switch)]
     [else '(switch)]))
-
-#;
-(defrel (≡-type Γ e1 e2)
-  (gather
-   (inspect e1 ≡-type-table in-mode)
-   (inspect e2 ≡-type-table in-mode)
-   (condp
-    [U (≡-type-id 'U e1 e2)] ;; USame-U
-    [Nat (≡-type-id 'Nat e1 e2)] ;; NatSame-Nat
-    [Atom (≡-type-id 'Atom e1 e2)] ;; AtomSame-Atom
-    [Trivial (≡-type-id 'Trivial e1 e2)] ;; TrivialSame-Trivial
-    [Σ (≡-type-binder 'Σ Γ e1 e2)] ;; ΣSame-Σ
-    [Π (≡-type-binder 'Π Γ e1 e2)] ;; FunSame-Π
-    [= (≡-type-= Γ e1 e2)] ;; EQSame-EQ
-    [switch (≡ Γ 'U e1 e2)]))) ;; EL-Same
-
 
 (defrel (≡-type Γ e1 e2)
   (condp
@@ -616,7 +552,7 @@
   (fresh (x f2 vars y Arg R)
     (symbolo x)
     (== e2 `(λ (,x) (,f2 ,x)))
-    (not-reserved-fn f2)
+    (non-reserved-Pie-fn f2)
     (== τ `(Π ([,y ,Arg]) ,R))
     (≡ Γ τ e1 f2)))
 
@@ -752,40 +688,6 @@
       [(var? e1) (if (var? e2) '(use-out) (lookup-e2 e2))]
       [(var? e2) (lookup-e1 e1)]
       [else (intersection (get-rules₁ e1) (get-rules₂ e2))])))
-#;
-(defrel (≡ Γ τ e1 e2)
-  (gather
-   (inspect `(,e1 . ,e2) ≡-table/e in-mode)
-   (inspect τ ≡-table/τ)
-   (condp
-    [var (≡-var Γ τ e1 e2)] ;; Hypothesis-Same
-    [the (≡-the Γ τ e1 e2)] ;; The
-    [Trivial (≡-symbol 'Trivial 'U e1 e2 τ)] ;; USame-Trivial
-    [sole (≡-sole Γ τ e1 e2)] ;; TrivSame-η
-    [Atom (≡-symbol 'Atom 'U e1 e2 τ)] ;; USame-Atom
-    [quote (≡-quote τ e1 e2)] ;; AtomSame-tick
-    [Σ (≡-dep-binder 'Σ Γ τ e1 e2)] ;; USame-Σ
-    [cons (≡-cons Γ τ e1 e2)] ;; ΣSame-cons
-    [car (≡-car Γ τ e1 e2)] ;; ΣSame-car
-    [Σ-η1 (≡–Σ-η1 Γ τ e1 e2)] ;; ΣSame-η1
-    [cdr (≡-cdr Γ τ e1 e2)] ;; ΣSame-cdr
-    [Σ-η2 (≡–Σ-η2 Γ τ e1 e2)] ;; ΣSame-η2
-    [Σ-η (≡-Σ-η Γ τ e1 e2)] ;; ΣSame-η
-    [Nat (≡-symbol 'Nat 'U e1 e2 τ)] ;; USame-Nat
-    [zero (≡-symbol 'zero 'Nat e1 e2 τ)] ;; NatSame-zero
-    [add1 (≡-add1 Γ τ e1 e2)] ;; NatSame-add1
-    [ind-Nat (≡-ind-Nat Γ τ e1 e2)] ;; NatSame-ind-Nat
-    [ind-Nat-ι1 (≡-ind-Nat-ι1 Γ τ e1 e2)] ;; NatSame-in-Nι1
-    [ind-Nat-ι2 (≡-ind-Nat-ι2 Γ τ e1 e2)] ;; NatSame-in-Nι2
-    [Π (≡-dep-binder 'Π Γ τ e1 e2)] ;; USame-Π
-    [λ (≡-λ Γ τ e1 e2)] ;; FunSame-λ
-    [app (≡-app Γ τ e1 e2)] ;; FunSame-apply
-    [Π-β (≡-Π-β Γ τ e1 e2)] ;; FunSame-β
-    [Π-η (≡-Π-η Γ τ e1 e2)] ;; FunSame-η
-    [= (≡-= Γ τ e1 e2)] ;; USame-=
-    [same (≡-same Γ τ e1 e2)] ;; EQSame-same
-    [ind-= (≡-ind-= Γ τ e1 e2)] ;; EqSame-ind-=
-    [ind-=-ι (≡-ind-=-ι Γ τ e1 e2)]))) ;; EqSame-i-=ι
 
 (defrel (≡ Γ τ e1 e2)
   (condp

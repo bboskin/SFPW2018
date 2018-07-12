@@ -73,15 +73,15 @@
 (defrel (free-app exp vs)
   (fresh (f arg f-vs arg-vs)
     (== exp `(,f ,arg))
-    (not-reserved-fn f)
+    (non-reserved-Pie-fn f)
     (free-vars f f-vs)
     (free-vars arg arg-vs)
     (uniono f-vs arg-vs vs)))
 
 (defrel (free-vars exp vs)
   (conde
-    [(not-reserved-symbol exp) (== vs `(,exp))]
-    [(reserved-symbol exp) (== vs '())]
+    [(non-reserved-Pie-symbol exp) (== vs `(,exp))]
+    [(reserved-Pie-symbol exp) (== vs '())]
     [(free-dep-binder exp vs)]
     [(free-lambda exp vs)]
     [(free-quote exp vs)]
@@ -148,7 +148,7 @@
 (defrel (subst-app x a exp o)
   (fresh (f arg f^ arg^)
     (== exp `(,f ,arg))
-    (not-reserved-fn f)
+    (non-reserved-Pie-fn f)
     (== o `(,f^ ,arg^))
     (substo x a f f^)
     (substo x a arg arg^)))

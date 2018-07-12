@@ -8,9 +8,9 @@
          uniono
          intersection
          
-         not-reserved-fn
-         reserved-symbol
-         not-reserved-symbol
+         non-reserved-Pie-fn
+         reserved-Pie-symbol
+         non-reserved-Pie-symbol
 
          apply-Γ
          apply-ρ
@@ -79,7 +79,7 @@
 ;; predicates about symbols
 
 ;; symbols that might be confused with a function of 1 argument
-(defrel (not-reserved-fn s)
+(defrel (non-reserved-Pie-fn s)
   (fresh ()
     (=/= s 'add1)
     (=/= s 'car)
@@ -87,7 +87,7 @@
     (=/= s 'same)))
 
 ;; symbols that might be confused with variables
-(defrel (reserved-symbol s)
+(defrel (reserved-Pie-symbol s)
   (symbolo s)
   (conde
     [(== s 'Atom)]
@@ -97,7 +97,7 @@
     [(== s 'Trivial)]
     [(== s 'U)]))
 
-(defrel (not-reserved-symbol s)
+(defrel (non-reserved-Pie-symbol s)
   (symbolo s)
   (=/= s 'Atom)
   (=/= s 'U)
