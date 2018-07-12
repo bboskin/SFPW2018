@@ -3,13 +3,11 @@
 
 
 (provide defrel
-         conde conda condu
+         conde conda condu condp
          fresh
          run run*
          == =/= absento numbero symbolo
          succeed fail
-         condp gather ;; new special forms
-         inspect ;; new user functions
          var?
          prt)
 
@@ -396,9 +394,6 @@
        (match S
          [(State s scp t neqs abs) b]))]))
 
-
-
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; condp
@@ -407,32 +402,37 @@
 
 (define-syntax condp
   (syntax-rules ()
-    ((condp (name g ...) ...)
-     (lambda (S p)
-       (let ([t-goals (filter (lambda (x) (p (car x)))
-                      `((,(quote name) . ,(lambda () (conj g ...)))
-                        ...))])
-         (((call/new-scope) (disj* (map cdr t-goals))) S))))))
-
-(define-syntax gather
-  (syntax-rules (condp)
-    ((gather info ... (condp g ...))
+    ((condp (insp ...) (name g ...) ...)
      (lambda (S)
-       (collect S (condp g ...) '() '() info ...)))))
+       (let ([p (collect S '() '() insp ...)]
+             [gs (name-and-thunk-goals (name g ...) ...)])
+         (disjunct S (map cdr (filter p gs))))))))
 
+(define (disjunct S ls)
+  (((call/new-scope)
+    (disj* ls))
+   S))
+
+(define-syntax name-and-thunk-goals
+  (syntax-rules ()
+    ((name-and-thunk-goals (name g ...) ...)
+     `((,(quote name) . ,(lambda () (conj g ...)))
+       ...))))
+     
 (define-syntax collect
-  (syntax-rules (in-mode condp inspect)
-    ((collect S g ins outs)
-     (g S (guider-maker ins outs (memv 'use-out ins))))
-    ((collect S g ins outs (inspect v t in-mode) ln ...)
-     (collect S g (append (inspect v t S) ins) outs ln ...))
-    ((collect S g ins outs (inspect v t) ln ...)
-     (collect S g ins (append (inspect v t S) outs) ln ...))))
+  (syntax-rules (in-mode)
+    ((collect S ins outs (v f in-mode) ln ...)
+     (collect S (append (inspect v f S) ins) outs ln ...))
+    ((collect S ins outs (v f) ln ...)
+     (collect S ins (append (inspect v f S) outs) ln ...))
+    ((collect S ins outs)
+     (make-guider ins outs (memv 'use-out ins)))))
 
-(define ((guider-maker ins outs out?) name)
-  (or (memv name ins)
-      (and out? (memv name outs))))
+(define ((make-guider ins outs out?) ln)
+  (let ([name (car ln)])
+    (or (memv name ins)
+        (and out? (memv name outs)))))
 
-(define (inspect exp table S)
-  (table
+(define (inspect exp sugg S)
+  (sugg
     (walk* exp (get-subst S))))

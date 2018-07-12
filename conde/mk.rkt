@@ -7,9 +7,6 @@
          run run*
          == =/= absento numbero symbolo
          succeed fail
-         ;condp gather ;; new special forms
-         ;inspect ;; new user functions
-         ;var?
          prt)
 
 #|microKanren, Ch 10|#

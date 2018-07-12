@@ -90,7 +90,7 @@
     [(? (exp-memv '(quote λ ind-Nat))) (list (car exp))]
     [`(,rat ,ran) '(app)]
     [else free-vars-branches]))
-
+#;
 (defrel (free-vars exp vs)
   (gather
    (inspect exp free-vars-table in-mode)
@@ -106,6 +106,22 @@
      [binary (free-binary exp vs)]
      [trinary (free-trinary exp vs)]
      [app (free-app exp vs)])))
+
+
+(defrel (free-vars exp vs)
+  (condp
+    ((exp free-vars-table in-mode))
+    [var (conde
+           [(not-reserved-symbol exp) (== vs `(,exp))]
+           [(reserved-symbol exp) (== vs '())])]
+    [bind (free-dep-binder exp vs)]
+    [λ (free-lambda exp vs)]
+    [quote (free-quote exp vs)]
+    [ind-Nat (free-ind-Nat exp vs)]
+    [unary (free-unary exp vs)]
+    [binary (free-binary exp vs)]
+    [trinary (free-trinary exp vs)]
+    [app (free-app exp vs)]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; capture-avoiding substitution
@@ -217,7 +233,7 @@
     [`(,rator ,rand) '(here app)]
     [else subst-branches]))
 
-
+#;
 (defrel (substo x a exp o)
   (gather
    (inspect exp subst-in-table in-mode)
@@ -233,4 +249,20 @@
      [binary (subst-binary x a exp o)]
      [trinary (subst-trinary x a exp o)]
      [ind-Nat (subst-ind-Nat x a exp o)])))
+
+
+(defrel (substo x a exp o)
+  (condp
+    ((exp subst-in-table in-mode)
+     (o subst-out-table))
+    [here (== exp x) (== o a)]
+    [sym (symbolo exp) (=/= exp x) (== exp o)]
+    [quote (subst-atom exp o)]
+    [λ (subst-lambda x a exp o)]
+    [bind (subst-dep x a exp o)]
+    [app (subst-app x a exp o)]
+    [unary (subst-unary x a exp o)]
+    [binary (subst-binary x a exp o)]
+    [trinary (subst-trinary x a exp o)]
+    [ind-Nat (subst-ind-Nat x a exp o)]))
 

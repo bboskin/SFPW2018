@@ -211,7 +211,7 @@
     [`(NEU ,t ,e) '(var ind-Nat ind-= car cdr app)]
     [else all-exprs]))
 
-
+#;
 (defrel (valofo ρ exp v)
   (gather
    (inspect exp valofo-in in-mode)
@@ -240,6 +240,34 @@
    [Π (valof-Π ρ exp v)]
    [λ (valof-λ ρ exp v)]
    [app (valof-app ρ exp v)])))
+
+(defrel (valofo ρ exp v)
+  (condp
+    ((exp valofo-in in-mode)
+     (v valofo-out))
+    ; The expressions
+    [the (valof-the ρ exp v)]
+    [zero (assign-simple 'zero 'ZERO exp v)]
+    [Atom (assign-simple 'Atom 'ATOM exp v)]
+    [Nat (assign-simple 'Nat 'NAT exp v)]
+    [U (assign-simple 'U 'UNIVERSE exp v)]
+    [Trivial (assign-simple 'Trivial 'TRIVIAL exp v)]
+    [sole (assign-simple 'sole 'SOLE exp v)]
+    [var (apply-ρ ρ exp v)]
+    [var (valof-neutral-var ρ exp v)]
+    [quote (valof-quote ρ exp v)]
+    [add1 (valof-add1 ρ exp v)]
+    [ind-Nat (valof-ind-Nat ρ exp v)]
+    [Σ (valof-Σ ρ exp v)]
+    [cons (valof-cons ρ exp v)]
+    [car (valof-car ρ exp v)]
+    [cdr (valof-cdr ρ exp v)]
+    [= (valof-= ρ exp v)]
+    [same (valof-same ρ exp v)]
+    [ind-= (valof-ind-= ρ exp v)]
+    [Π (valof-Π ρ exp v)]
+    [λ (valof-λ ρ exp v)]
+    [app (valof-app ρ exp v)]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -350,7 +378,7 @@
       [(null? t) '()]
       [(in-type? e (car t)) `(,(car t) neutral the)]
       [else (loop (cdr t))])))
-
+#;
 (defrel (read-backo Γ τ v norm)
   (gather
    (inspect v read-back-v in-mode)
@@ -368,6 +396,23 @@
      [Σ (read-back-cons Γ τ v norm)]
      [= (read-back-same Γ τ v norm)]
      [Π (read-back-λ Γ τ v norm)])))
+
+(defrel (read-backo Γ τ v norm)
+  (condp
+    ((v read-back-v in-mode)
+     (τ read-back-τ in-mode)
+     (norm read-back-norm))
+    ;; Types
+    [U (go-to-type Γ τ v norm)]
+    ;; The
+    [the (read-back-the Γ τ v norm)]
+    [neutral (go-to-neutral Γ τ v norm)]
+    [Trivial (== τ 'TRIVIAL) (== v 'SOLE) (== norm 'sole)]
+    [Atom (read-back-quote Γ τ v norm)]
+    [Nat (read-back-Nat Γ τ v norm)]
+    [Σ (read-back-cons Γ τ v norm)]
+    [= (read-back-same Γ τ v norm)]
+    [Π (read-back-λ Γ τ v norm)]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -420,7 +465,7 @@
     [`(Σ . ,info) '(Σ)]
     [(? var?) '(ATOM NAT UNIVERSE TRIVIAL Σ Π = neutral)]
     [else '(neutral)]))
-
+#;
 (defrel (read-back-typo Γ v norm)
   (gather
    (inspect v RBT-v in-mode)
@@ -434,6 +479,19 @@
      [= (read-back-= Γ v norm)]
      [Π (read-back-dep-binder 'PI 'Π Γ v norm)]
      [neutral (read-back-type-neutral Γ v norm)])))
+
+(defrel (read-back-typo Γ v norm)
+  (condp
+    ((v RBT-v in-mode)
+     (norm RBT-n))
+    [ATOM (assign-simple 'ATOM 'Atom v norm)]
+    [NAT (assign-simple 'NAT 'Nat v norm)]
+    [UNIVERSE (assign-simple 'UNIVERSE 'U v norm)]
+    [TRIVIAL (assign-simple 'TRIVIAL 'Trivial v norm)]
+    [Σ (read-back-dep-binder 'SIGMA 'Σ Γ v norm)]
+    [= (read-back-= Γ v norm)]
+    [Π (read-back-dep-binder 'PI 'Π Γ v norm)]
+    [neutral (read-back-type-neutral Γ v norm)]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -502,7 +560,7 @@
     [(? var?) all-RBN]
     [else '()]))
 
-
+#;
 (defrel (read-back-neutral τ Γ ne norm)
   (gather
    (inspect ne RBN-ne in-mode)
@@ -513,3 +571,13 @@
    [N-APP (RBN-app τ Γ ne norm)]
    [IND-NAT (RBN-ind-Nat τ Γ ne norm)]
    [IND-= (RBN-ind-= τ Γ ne norm)])))
+
+(defrel (read-back-neutral τ Γ ne norm)
+  (condp
+    ((ne RBN-ne in-mode))
+    [VAR (RBN-var ne norm)]
+    [CAR (RBN-car τ Γ ne norm)]
+    [CDR (RBN-cdr τ Γ ne norm)]
+    [N-APP (RBN-app τ Γ ne norm)]
+    [IND-NAT (RBN-ind-Nat τ Γ ne norm)]
+    [IND-= (RBN-ind-= τ Γ ne norm)]))

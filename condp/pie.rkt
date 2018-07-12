@@ -42,12 +42,3 @@
 
 (defrel (pie p o)
   (run-pie '() p o))
-
-(time
- (run 1 (q) 
-   (pie `(((the (Π ([x Nat])
-                  Atom)
-             (λ (n) 
-               'hello))
-          (car ,q)))
-      `((the Atom 'hello)))))
