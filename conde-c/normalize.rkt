@@ -52,13 +52,13 @@
 (defrel (valof-app ρ exp v)
   (fresh (rator rand rato rando)
     (== exp `(,rator ,rand))
-    (valofo ρ rator rato)           
+    (valofo ρ rator rato)
     (valofo ρ rand rando)
     (do-appo rato rando v)))
 
 (defrel (valof-closuro clo v ans)
   (fresh (ρ x e ρ^)
-    (== clo `(CLOS ,ρ ,x ,e))           
+    (== clo `(CLOS ,ρ ,x ,e))
     (extend-ρ ρ x v ρ^)
     (valofo ρ^ e ans)))
 
@@ -196,48 +196,30 @@
       (do-appo m from f2)
       (do-appo f2 `(SAME ,from) τb))]))
 
-;; relevance functions for valofo
-
-(define (valofo-in exp)
-  (match exp
-    [(? simple?) (list exp)]
-    [(? symbol?) '(var)]
-    [(? (exp-memv? non-symbol-exprs)) (list (car exp))]
-    [`(,rat ,ran) '(app)]
-    [(? var?) '(use-maybe)]))
-
-(define (valofo-out v)
-  (match v
-    [`(NEU ,t ,e) '(var ind-Nat ind-= car cdr app)]
-    [else all-exprs]))
-
 (defrel (valofo ρ exp v)
-  (condp
-    ((valofo-in exp))
-    ((valofo-out v))
-    ; The expressions
-    [the (valof-the ρ exp v)]
-    [zero (assign-simple 'zero 'ZERO exp v)]
-    [Atom (assign-simple 'Atom 'ATOM exp v)]
-    [Nat (assign-simple 'Nat 'NAT exp v)]
-    [U (assign-simple 'U 'UNIVERSE exp v)]
-    [Trivial (assign-simple 'Trivial 'TRIVIAL exp v)]
-    [sole (assign-simple 'sole 'SOLE exp v)]
-    [var (apply-ρ ρ exp v)]
-    [var (valof-neutral-var ρ exp v)]
-    [quote (valof-quote ρ exp v)]
-    [add1 (valof-add1 ρ exp v)]
-    [ind-Nat (valof-ind-Nat ρ exp v)]
-    [Σ (valof-Σ ρ exp v)]
-    [cons (valof-cons ρ exp v)]
-    [car (valof-car ρ exp v)]
-    [cdr (valof-cdr ρ exp v)]
-    [= (valof-= ρ exp v)]
-    [same (valof-same ρ exp v)]
-    [ind-= (valof-ind-= ρ exp v)]
-    [Π (valof-Π ρ exp v)]
-    [λ (valof-λ ρ exp v)]
-    [app (valof-app ρ exp v)]))
+  (conde
+    [(valof-the ρ exp v)]
+    [(assign-simple 'zero 'ZERO exp v)]
+    [(assign-simple 'Atom 'ATOM exp v)]
+    [(assign-simple 'Nat 'NAT exp v)]
+    [(assign-simple 'U 'UNIVERSE exp v)]
+    [(assign-simple 'Trivial 'TRIVIAL exp v)]
+    [(assign-simple 'sole 'SOLE exp v)]
+    [(apply-ρ ρ exp v)]
+    [(valof-neutral-var ρ exp v)]
+    [(valof-quote ρ exp v)]
+    [(valof-add1 ρ exp v)]
+    [(valof-ind-Nat ρ exp v)]
+    [(valof-Σ ρ exp v)]
+    [(valof-cons ρ exp v)]
+    [(valof-car ρ exp v)]
+    [(valof-cdr ρ exp v)]
+    [(valof-= ρ exp v)]
+    [(valof-same ρ exp v)]
+    [(valof-ind-= ρ exp v)]
+    [(valof-Π ρ exp v)]
+    [(valof-λ ρ exp v)]
+    [(valof-app ρ exp v)]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -314,57 +296,18 @@
   (== τ 'UNIVERSE)
   (read-back-typo Γ v norm))
 
-
-;; relevance function for read-backo
-
-(define (in-type? e τ)
-  (let ([cs (get-constructors τ)])
-    (or (memv e cs)
-        (and (pair? e)
-             (member (car e) cs)))))
-
-(define (read-back-v v)
-  (match v
-    [`(THE ,t ,e) '(the)]
-    [`(NEU ,t ,e) '(neutral)]
-    [(? var?) '(use-maybe)]
-    [else '()]))
-
-(define (read-back-τ t)
-  (match t
-    ['UNIVERSE '(U)]
-    ['TRIVIAL '(Trivial)]
-    ['NAT '(Nat)]
-    ['ATOM '(Atom)]
-    [`(SIGMA . ,info) '(Σ)]
-    [`(EQUAL . ,info) '(=)]
-    [`(PI . ,info) '(Π)]
-    [(? var?) '(use-maybe)]
-    [else '(the neutral)]))
-
-(define (read-back-norm e)
-  (let loop ([t '(Nat Trivial Atom Σ Π = U)])
-    (cond
-      [(null? t) '()]
-      [(in-type? e (car t)) `(,(car t) neutral the)]
-      [else (loop (cdr t))])))
-
 (defrel (read-backo Γ τ v norm)
-  (condp
-    ((read-back-v v)
-     (read-back-τ τ))
-    ((read-back-norm norm))
-    ;; Types
-    [U (go-to-type Γ τ v norm)]
-    ;; The
-    [the (read-back-the Γ τ v norm)]
-    [neutral (go-to-neutral Γ τ v norm)]
-    [Trivial (== τ 'TRIVIAL) (== v 'SOLE) (== norm 'sole)]
-    [Atom (read-back-quote Γ τ v norm)]
-    [Nat (read-back-Nat Γ τ v norm)]
-    [Σ (read-back-cons Γ τ v norm)]
-    [= (read-back-same Γ τ v norm)]
-    [Π (read-back-λ Γ τ v norm)]))
+  (conde
+   [(go-to-type Γ τ v norm)]
+   ;; The
+   [(read-back-the Γ τ v norm)]
+   [(go-to-neutral Γ τ v norm)]
+   [(== τ 'TRIVIAL) (== v 'SOLE) (== norm 'sole)]
+   [(read-back-quote Γ τ v norm)]
+   [(read-back-Nat Γ τ v norm)]
+   [(read-back-cons Γ τ v norm)]
+   [(read-back-same Γ τ v norm)]
+   [(read-back-λ Γ τ v norm)]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -382,7 +325,7 @@
     (read-back-typo Γ^ Dv D^)))
 
 (defrel (read-back-= Γ v norm)
-  (fresh (X to from Xo too fromo) 
+  (fresh (X to from Xo too fromo)
     (== v `(EQUAL ,X ,from ,to))
     (== norm `(= ,Xo ,fromo ,too))
     (read-back-typo Γ X Xo)
@@ -394,42 +337,16 @@
     (== v `(NEU UNIVERSE ,ne))
     (read-back-neutral 'UNIVERSE Γ ne norm)))
 
-;; relevance functions for read-back-typo
-
-(define (RBT-v v)
-  (match v
-    [(? symbol?) `(,v)]
-    [`(PI . ,info) '(Π)]
-    [`(EQUAL . ,info) '(=)]
-    [`(SIGMA . ,info) '(Σ)]
-    [`(NEU . ,info) '(neutral)]
-    [(? var?) '(use-maybe)]
-    [else '()]))
-
-(define (RBT-n e)
-  (match e
-    ['Atom '(ATOM)]
-    ['Trivial '(TRIVIAL)]
-    ['Nat '(NAT)]
-    ['U '(UNIVERSE)]
-    [`(Π . ,info) '(Π)]
-    [`(= . ,info) '(=)]
-    [`(Σ . ,info) '(Σ)]
-    [(? var?) '(ATOM NAT UNIVERSE TRIVIAL Σ Π = neutral)]
-    [else '(neutral)]))
-
 (defrel (read-back-typo Γ v norm)
-  (condp
-    ((RBT-v v))
-    ((RBT-n norm))
-    [ATOM (assign-simple 'ATOM 'Atom v norm)]
-    [NAT (assign-simple 'NAT 'Nat v norm)]
-    [UNIVERSE (assign-simple 'UNIVERSE 'U v norm)]
-    [TRIVIAL (assign-simple 'TRIVIAL 'Trivial v norm)]
-    [Σ (read-back-dep-binder 'SIGMA 'Σ Γ v norm)]
-    [= (read-back-= Γ v norm)]
-    [Π (read-back-dep-binder 'PI 'Π Γ v norm)]
-    [neutral (read-back-type-neutral Γ v norm)]))
+  (conde
+    [(assign-simple 'ATOM 'Atom v norm)]
+    [(assign-simple 'NAT 'Nat v norm)]
+    [(assign-simple 'UNIVERSE 'U v norm)]
+    [(assign-simple 'TRIVIAL 'Trivial v norm)]
+    [(read-back-dep-binder 'SIGMA 'Σ Γ v norm)]
+    [(read-back-= Γ v norm)]
+    [(read-back-dep-binder 'PI 'Π Γ v norm)]
+    [(read-back-type-neutral Γ v norm)]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -487,23 +404,11 @@
     (read-backo Γ τm m mo)
     (read-backo Γ τb b bo)))
 
-;; relevance function for read-back-neutral
-
-(define all-RBN
-  '(VAR CAR CDR N-APP IND-NAT IND-=))
-
-(define (RBN-ne v)
-  (match v
-    [(? (exp-memv? all-RBN)) `(,(car v))]
-    [(? var?) all-RBN]
-    [else '()]))
-
 (defrel (read-back-neutral τ Γ ne norm)
-  (condp
-    ((RBN-ne ne)) ()
-    [VAR (RBN-var ne norm)]
-    [CAR (RBN-car τ Γ ne norm)]
-    [CDR (RBN-cdr τ Γ ne norm)]
-    [N-APP (RBN-app τ Γ ne norm)]
-    [IND-NAT (RBN-ind-Nat τ Γ ne norm)]
-    [IND-= (RBN-ind-= τ Γ ne norm)]))
+  (conde
+    [(RBN-var ne norm)]
+    [(RBN-car τ Γ ne norm)]
+    [(RBN-cdr τ Γ ne norm)]
+    [(RBN-app τ Γ ne norm)]
+    [(RBN-ind-Nat τ Γ ne norm)]
+    [(RBN-ind-= τ Γ ne norm)]))

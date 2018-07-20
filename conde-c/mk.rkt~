@@ -1,15 +1,16 @@
 
-
 #lang racket
 
 
 (provide defrel
-         conde conda condu condp
+         conde conda condu
          fresh
          run run*
          == =/= absento numbero symbolo
          succeed fail
-         var?
+         condp gather ;; new special forms
+         inspect ;; new user functions
+         fresh? car-fresh? ;; useful things for generating guidance functions
          prt)
 
 #|microKanren, Ch 10|#
@@ -17,10 +18,12 @@
 (struct Meta
   (sym
    scp
-   [val #:mutable #:auto])
-  #:transparent)
+   [val #:mutable #:auto]))
 
-(define (var? x) (Meta? x))
+(define (fresh? x) (Meta? x))
+(define (car-fresh? x)
+  (and (pair? x)
+       (fresh? (car x))))
 
 (struct State
   (s
@@ -146,6 +149,10 @@
       [(pair? v) (cons (walk* (car v) s)
                        (walk* (cdr v) s))]
       [else v])))
+
+;; added for condp interface
+(define (walk*-p v s)
+  (match s [(State σ scp t neqs abs) (walk* v σ)]))
 
 (define (reify-s v s)
   (let ([v (walk v s)])
@@ -396,161 +403,53 @@
          [(State s scp t neqs abs) b]))]))
 
 
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; condp
-#;
-(define (add-all s x* v*)
-  (cond
-    [(null? x*) s]
-    [(not (Meta? (car x*)))
-     (add-all s (cdr x*) (cdr v*))]
-    [else (add-all (let ((s2 (ext-s (car x*) (car v*) s))) (if s2 s2 s))
-                   (cdr x*)
-                   (cdr v*))]))
-#;
-(define (append-suggs f* v*)
-  (cond
-    [(null? f*) '()]
-    [else (append ((car f*) (car v*))
-                  (append-suggs (cdr f*) (cdr v*)))]))
-
-
-(define (append-all v* f*)
-  (cond
-    [(null? v*) '()]
-    [else (append ((car f*) (car v*))
-                  (append-all (cdr v*) (cdr f*)))]))
-
-
-(define (extend-all x* v* s)
-  (cond
-    [(null? x*) s]
-    [else (let ([new-s (if (var? (car v*))
-                           (ext-s (car x*) (car v*) s)
-                           (hash-set s (car x*) (car v*)))])
-            (extend-all (cdr x*) (cdr v*)
-                        (if new-s new-s s)))]))
-#;
-(define (extend-all x* v* s)
-  (cond
-    [(null? x*) s]
-    [else (let ([new-s (ext-s (car x*) (car v*) s)])
-            (extend-all (cdr x*) (cdr v*)
-                        (if new-s new-s s)))]))
-
-
-(define (replace-subst S s)
-  (match S
-    [(State s-old scp t neqs abs)
-     (State s     scp t neqs abs)]))
-
-(define-syntax disjp
-  (syntax-rules ()
-    ((disjp los) fail)
-    ((disjp los (n0 g0 ...) ln ...)
-     (if (memv 'n0 los)
-         (disj₂ (conj g0 ...) (disjp los ln ...))
-         (disjp los ln ...)))))
-
-
-(define (disjp2 los k* g*)
-  (cond
-    ((null? k*) fail)
-    ((memv (car k*) los)
-     (disj₂ ((car g*))
-            (disjp2 los (cdr k*) (cdr g*))))
-    (else
-     (disjp2 los (cdr k*) (cdr g*)))))
-
-(define (condp-s s f-in* f-out* v-in* v-out*)
-  (begin
-    ;(displayln "entering condp")
-    (let* ([v* (walk* v-in* s)]
-           [plos (append-all v* f-in*)]
-           [b (memv 'use-maybe plos)]
-           [v*2 (when b (walk* v-out* s))]
-           [plos2 (when b (append-all v*2 f-out*))]
-           [los (if b (append plos plos2) plos)])
-      los)))
-
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (define-syntax condp
   (syntax-rules ()
-    ((condp
-       ((f-in val-in) ...)
-       ((f-out val-out) ...)
-       [key g ...]
-       ...)
+    ((condp p (tag g ...) ...)
      (lambda (S)
-       (let ((los
-              (condp-s (get-subst S)
-                       `(,f-in ...) `(,f-out ...)
-                       `(,val-in ...) `(,val-out ...))))
-         (((call/new-scope)
-           (disjp2 los `(key ...)  `(,(lambda () (conj g ...)) ...)))
-          S))))))
+       (let ([t-goals (filter (lambda (x) (p (car x)))
+                      `((,tag . ,(lambda () (conj g ...)))
+                        ...))])
+         (((call/new-scope) (disj* (map cdr t-goals))) S))))))
 
-#;
-(define-syntax condp
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+; info is a list of expressions, which may or may not be tagged
+
+;; the first accumulator holds information that comes from tagged expressions
+;; the second accumulator holds information that comes from untagged expressions
+
+(define-syntax gather
   (syntax-rules ()
-    ((condp ((f-in var-in) ...) ((f-out var-out) ...) (key g ...) ...)
+    ((gather info ... g)
      (lambda (S)
-       (let* ((s (get-subst S))
-              (v* (walk* `(,var-in ...) s))
-              (ps (add-all s `(,var-in ...) v*))
-              (_ (displayln v*))
-              (ulos (append-suggs `(,f-in ...) v*))
-              ;;;;;;;;;;
-              (b (memv 'use-maybe ulos))
-              (v*2 (when b (walk* `(,var-in ...) ps)))
-              (los (if b (append (append-suggs `(,f-out ...) v*2) ulos) ulos))
-              #;(s (if b (add-all ps `(,var-out ...) v*2) ps))
-              )
-         (((call/new-scope)
-           (disj (if (memv 'key los) (conj g ...) fail) ...))
-          (replace-subst S s)))))))
+       (collect S g '() '() info ...)))))
 
 
-
-
+(define ((guider-maker ins outs out?) tag)
+  (or (memv tag ins)
+      (and out? (memv tag outs))))
 #;
-(define-syntax condp
-  (syntax-rules ()
-    ((condp ((f-in val-in) ...) ((f-out val-out) ...) (name g ...) ...)
-     (lambda (S)
-       (let ([s (get-subst S)])
-         (let* ([vs `(,(walk* val-in s) ...)]
-                [ps (add-all (list val-in ...) s vs)])
-           (let* ((plos (foldr (lambda (f v ans) (append (f v) ans))
-                               '()
-                               (list f-in ...) vs))
-                  (b (memv 'use-maybe plos)))
-               (let* ((vs2 (if b `(,(walk* val-out s) ...) '()))
-                      (los (if b
-                               (append plos
-                                       (foldr (lambda (f v ans)
-                                                (append (f v) ans))
-                                              '()
-                                              (list f-out ...) vs2))
-                               plos))
-                      (ps2 (if (not b)
-                               ps
-                               (add-all (list val-out ...) s vs2))))
-                 (((call/new-scope)
-                   (disj (if (memv 'name los) (conj g ...) fail) ...))
-                  (replace-subst S ps2))))))))))
+(define ((guider-maker ins outs out?) tag)
+  #t)
 
+(define-syntax collect
+  (syntax-rules (in-mode condp inspect)
+    ((collect S (condp g ...) ins outs)
+     ((condp (guider-maker ins outs (memv 'use-out ins)) g ...) S))
+    ((collect S g ins outs (inspect v t in-mode) ln ...)
+     (collect S g (append (inspect v t S) ins) outs ln ...))
+    ((collect S g ins outs (inspect v t) ln ...)
+     (collect S g ins (append (inspect v t S) outs) ln ...))))
 
-
-#;
-(define-syntax condp
-  (syntax-rules ()
-    ((condp ((f-in val-in) ...) ((f-out val-out) ...) (name g ...) ...)
-     (lambda (S)
-       (let ([s (get-subst S)])
-         (((call/new-scope)
-           (let ((plos (append (f-in (walk* val-in s)) ...)))
-             (let ((los (if (memv 'use-maybe plos)
-                            (append plos (f-out (walk* val-out s)) ...)
-                            plos)))
-               (disj (if (memv 'name los) (conj g ...) fail) ...))))
-          S))))))
+(define (inspect exp table S)
+  (table
+    (walk* exp (get-subst S))))

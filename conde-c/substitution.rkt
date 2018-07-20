@@ -92,20 +92,17 @@
     [else free-vars-branches]))
 
 (defrel (free-vars exp vs)
-  (condp
-    ((free-vars-table exp))
-    ()
-    [var (conde
-           [(non-reserved-Pie-symbol exp) (== vs `(,exp))]
-           [(reserved-Pie-symbol exp) (== vs '())])]
-    [bind (free-dep-binder exp vs)]
-    [λ (free-lambda exp vs)]
-    [quote (free-quote exp vs)]
-    [ind-Nat (free-ind-Nat exp vs)]
-    [unary (free-unary exp vs)]
-    [binary (free-binary exp vs)]
-    [trinary (free-trinary exp vs)]
-    [app (free-app exp vs)]))
+  (conde
+    [(non-reserved-Pie-symbol exp) (== vs `(,exp))]
+    [(reserved-Pie-symbol exp) (== vs '())]
+    [(free-dep-binder exp vs)]
+    [(free-lambda exp vs)]
+    [(free-quote exp vs)]
+    [(free-ind-Nat exp vs)]
+    [(free-unary exp vs)]
+    [(free-binary exp vs)]
+    [(free-trinary exp vs)]
+    [(free-app exp vs)]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; capture-avoiding substitution
@@ -192,43 +189,16 @@
     (== o `(λ (,z) ,bᵣ))
     (avoid-capture x y z a b bᵣ)))
 
-;; relevance functions
-(define subst-branches
-  '(sym here bind λ quote unary binary trinary ind-Nat app))
-
-(define (subst-in-table exp)
-  (match exp
-    [(? symbol?) '(here sym)]
-    [(? (exp-memv? unary-ops)) '(unary)]
-    [(? (exp-memv? binary-ops)) '(binary)]
-    [(? (exp-memv? trinary-ops)) '(trinary)]
-    [(? (exp-memv? '(quote ind-Nat λ))) (list (car exp))]
-    [(? (exp-memv? dep-binders)) '(bind)]
-    [`(,rator ,rand) '(app)]
-    [else '(use-maybe)]))
-
-(define (subst-out-table exp)
-  (match exp
-    [(? symbol?) '(here sym)]
-    [(? (exp-memv? unary-ops)) '(here unary)]
-    [(? (exp-memv? binary-ops)) '(here binary)]
-    [(? (exp-memv? trinary-ops)) '(here trinary)]
-    [(? (exp-memv? '(quote ind-Nat λ))) (list 'here (car exp))]
-    [`(,rator ,rand) '(here app)]
-    [else subst-branches]))
-
 (defrel (substo a x exp o)
-  (condp
-    ((subst-in-table exp))
-    ((subst-out-table o))
-    [here (== exp x) (== o a)]
-    [sym (symbolo exp) (=/= exp x) (== exp o)]
-    [quote (subst-atom exp o)]
-    [λ (subst-lambda a x exp o)]
-    [bind (subst-dep a x exp o)]
-    [app (subst-app a x exp o)]
-    [unary (subst-unary a x exp o)]
-    [binary (subst-binary a x exp o)]
-    [trinary (subst-trinary a x exp o)]
-    [ind-Nat (subst-ind-Nat a x exp o)]))
+  (conde
+    [(== exp x) (== o a)]
+    [(symbolo exp) (=/= exp x) (== exp o)]
+    [(subst-atom exp o)]
+    [(subst-lambda a x exp o)]
+    [(subst-dep a x exp o)]
+    [(subst-app a x exp o)]
+    [(subst-unary a x exp o)]
+    [(subst-binary a x exp o)]
+    [(subst-trinary a x exp o)]
+    [(subst-ind-Nat a x exp o)]))
 

@@ -5,10 +5,27 @@
 
 
 ;; First round of tests, without using claim/define
+
 (time
  (run 1 (q r) 
    (pie `((add1 (add1 ,q)))
      `((the Nat ,r)))))
+
+(time
+ (run 1 (T) 
+   (pie `(((the ,T 
+             (λ (x) x))
+           (add1 zero)))
+        '((the Nat (add1 zero))))))
+
+(time
+ (run 1 (q) 
+   (pie `(((the (Π ([x Nat])
+                  Atom)
+             (λ (n) 
+               'hello))
+          (car ,q)))
+        `((the Atom 'hello)))))
 
 (time
  (run 1 q
@@ -24,36 +41,24 @@
                 (same (add1 (add1 zero)))))))
        q)))
 
-(time
- (run 1 (q) 
-   (pie `(((the (Π ([x Nat])
-                  Atom)
-             (λ (n) 
-               'hello))
-          (car ,q)))
-      `((the Atom 'hello)))))
 
-(time
- (run 1 (T) 
-   (pie `(((the ,T 
-             (λ (x) x))
-           (add1 zero)))
-     '((the Nat (add1 zero))))))
+
+
 
 ; Second round of tests, performing more interesting syntheses
 
 (time
   (run 1 (f)
-   (pie `((claim/define foo
+   (pie `((claim/define bar
+            (Π ([X U]) 
+              (Π ([x X]) X))
+            ,f)
+          (claim/define foo
             (Π ([X U]) 
               (Π ([x X])
                 X))
             (λ (X)
               (λ (x) x)))
-          (claim/define bar
-            (Π ([X U]) 
-              (Π ([x X]) X))
-                ,f)
           (claim/define foo=bar
             (Π ([Z U])
               (Π ([z Z])

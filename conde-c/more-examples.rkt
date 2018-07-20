@@ -3,8 +3,9 @@
 (require "mk.rkt"
          "pie.rkt")
 
-(time
- (run 1 type
+
+(time 
+ (run 1 (type)
       (pie `((claim/define +
                            ,type
                            (λ (n)
@@ -13,7 +14,6 @@
                                         (λ (z) Nat)
                                         m
                                         (λ (n-1) (λ (res) (add1 res)))))))
-             
              (claim/define +-zero-r
                            (Π ([n Nat])
                               (= Nat n
@@ -27,10 +27,12 @@
                                           (ind-= IH
                                                  (λ (?) (λ (_) (= Nat (add1 n-1) (add1 ?))))
                                                  (same (add1 n-1)))))))))
-           '())))
+              '())))
+
+
 
 (time 
- (run 1 fun
+ (run 1 (fun)
       (pie `((claim/define +
                            (Π ([n Nat])
                               (Π ([m Nat])
@@ -52,12 +54,11 @@
                                           (ind-= IH
                                                  (λ (?) (λ (_) (= Nat (add1 n-1) (add1 ?))))
                                                  (same (add1 n-1)))))))))
-              '())))
-
+           '())))
 
 
 (time 
- (run 1 q
+ (run 1 (fun)
       (pie `((claim/define +
                            (Π ([n Nat])
                               (Π ([m Nat])

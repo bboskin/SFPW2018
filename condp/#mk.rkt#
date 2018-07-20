@@ -1,10 +1,9 @@
 
-
 #lang racket
 
 
 (provide defrel
-         conde conda condu condp
+         conde conda condu condp new-condp
          fresh
          run run*
          == =/= absento numbero symbolo
@@ -395,153 +394,53 @@
        (match S
          [(State s scp t neqs abs) b]))]))
 
-
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; condp
-#;
-(define (add-all s x* v*)
-  (cond
-    [(null? x*) s]
-    [(not (Meta? (car x*)))
-     (add-all s (cdr x*) (cdr v*))]
-    [else (add-all (let ((s2 (ext-s (car x*) (car v*) s))) (if s2 s2 s))
-                   (cdr x*)
-                   (cdr v*))]))
-#;
-(define (append-suggs f* v*)
-  (cond
-    [(null? f*) '()]
-    [else (append ((car f*) (car v*))
-                  (append-suggs (cdr f*) (cdr v*)))]))
-
-
-(define (append-all v* f*)
-  (cond
-    [(null? v*) '()]
-    [else (append ((car f*) (car v*))
-                  (append-all (cdr v*) (cdr f*)))]))
-
-
-(define (extend-all x* v* s)
-  (cond
-    [(null? x*) s]
-    [else (let ([new-s (if (var? (car v*))
-                           (ext-s (car x*) (car v*) s)
-                           (hash-set s (car x*) (car v*)))])
-            (extend-all (cdr x*) (cdr v*)
-                        (if new-s new-s s)))]))
-#;
-(define (extend-all x* v* s)
-  (cond
-    [(null? x*) s]
-    [else (let ([new-s (ext-s (car x*) (car v*) s)])
-            (extend-all (cdr x*) (cdr v*)
-                        (if new-s new-s s)))]))
-
-
-(define (replace-subst S s)
-  (match S
-    [(State s-old scp t neqs abs)
-     (State s     scp t neqs abs)]))
-
-(define-syntax disjp
-  (syntax-rules ()
-    ((disjp los) fail)
-    ((disjp los (n0 g0 ...) ln ...)
-     (if (memv 'n0 los)
-         (disj₂ (conj g0 ...) (disjp los ln ...))
-         (disjp los ln ...)))))
-
-
-(define (disjp2 los k* g*)
-  (cond
-    ((null? k*) fail)
-    ((memv (car k*) los)
-     (disj₂ ((car g*))
-            (disjp2 los (cdr k*) (cdr g*))))
-    (else
-     (disjp2 los (cdr k*) (cdr g*)))))
-
-(define (condp-s s f-in* f-out* v-in* v-out*)
-  (begin
-    ;(displayln "entering condp")
-    (let* ([v* (walk* v-in* s)]
-           [plos (append-all v* f-in*)]
-           [b (memv 'use-maybe plos)]
-           [v*2 (when b (walk* v-out* s))]
-           [plos2 (when b (append-all v*2 f-out*))]
-           [los (if b (append plos plos2) plos)])
-      los)))
-
-
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+#|
 (define-syntax condp
   (syntax-rules ()
-    ((condp
-       ((f-in val-in) ...)
-       ((f-out val-out) ...)
-       [key g ...]
-       ...)
+    ((condp (insp ...) (name g ...) ...)
      (lambda (S)
-       (let ((los
-              (condp-s (get-subst S)
-                       `(,f-in ...) `(,f-out ...)
-                       `(,val-in ...) `(,val-out ...))))
-         (((call/new-scope)
-           (disjp2 los `(key ...)  `(,(lambda () (conj g ...)) ...)))
-          S))))))
+       (let ([p (collect S '() '() insp ...)]
+             [gs (name-and-thunk-goals (name g ...) ...)])
+         (disjunct S (map cdr (filter p gs))))))))
 
-#;
-(define-syntax condp
+(define (disjunct S ls)
+  (((call/new-scope)
+    (disj* ls))
+   S))
+
+(define-syntax name-and-thunk-goals
   (syntax-rules ()
-    ((condp ((f-in var-in) ...) ((f-out var-out) ...) (key g ...) ...)
-     (lambda (S)
-       (let* ((s (get-subst S))
-              (v* (walk* `(,var-in ...) s))
-              (ps (add-all s `(,var-in ...) v*))
-              (_ (displayln v*))
-              (ulos (append-suggs `(,f-in ...) v*))
-              ;;;;;;;;;;
-              (b (memv 'use-maybe ulos))
-              (v*2 (when b (walk* `(,var-in ...) ps)))
-              (los (if b (append (append-suggs `(,f-out ...) v*2) ulos) ulos))
-              #;(s (if b (add-all ps `(,var-out ...) v*2) ps))
-              )
-         (((call/new-scope)
-           (disj (if (memv 'key los) (conj g ...) fail) ...))
-          (replace-subst S s)))))))
+    ((name-and-thunk-goals (name g ...) ...)
+     `((,(quote name) . ,(lambda () (conj g ...)))
+       ...))))
+     
+(define-syntax collect
+  (syntax-rules (in-mode)
+    ((collect S ins outs (v f in-mode) ln ...)
+     (collect S (append (inspect v f S) ins) outs ln ...))
+    ((collect S ins outs (v f) ln ...)
+     (collect S ins (append (inspect v f S) outs) ln ...))
+    ((collect S ins outs)
+     (make-guider ins outs (memv 'use-out ins)))))
+
+(define ((make-guider ins outs out?) ln)
+  (let ([name (car ln)])
+    (or (memv name ins)
+        (and out? (memv name outs)))))
+
+(define (inspect exp sugg S)
+  (sugg
+    (walk* exp (get-subst S))))
+|#
 
 
 
 
-#;
-(define-syntax condp
-  (syntax-rules ()
-    ((condp ((f-in val-in) ...) ((f-out val-out) ...) (name g ...) ...)
-     (lambda (S)
-       (let ([s (get-subst S)])
-         (let* ([vs `(,(walk* val-in s) ...)]
-                [ps (add-all (list val-in ...) s vs)])
-           (let* ((plos (foldr (lambda (f v ans) (append (f v) ans))
-                               '()
-                               (list f-in ...) vs))
-                  (b (memv 'use-maybe plos)))
-               (let* ((vs2 (if b `(,(walk* val-out s) ...) '()))
-                      (los (if b
-                               (append plos
-                                       (foldr (lambda (f v ans)
-                                                (append (f v) ans))
-                                              '()
-                                              (list f-out ...) vs2))
-                               plos))
-                      (ps2 (if (not b)
-                               ps
-                               (add-all (list val-out ...) s vs2))))
-                 (((call/new-scope)
-                   (disj (if (memv 'name los) (conj g ...) fail) ...))
-                  (replace-subst S ps2))))))))))
-
-
-
-#;
 (define-syntax condp
   (syntax-rules ()
     ((condp ((f-in val-in) ...) ((f-out val-out) ...) (name g ...) ...)
@@ -549,8 +448,60 @@
        (let ([s (get-subst S)])
          (((call/new-scope)
            (let ((plos (append (f-in (walk* val-in s)) ...)))
-             (let ((los (if (memv 'use-maybe plos)
+             (let ((los (if (memv 'use-out plos)
                             (append plos (f-out (walk* val-out s)) ...)
                             plos)))
                (disj (if (memv 'name los) (conj g ...) fail) ...))))
           S))))))
+
+#|
+(define-syntax condp
+  (syntax-rules (in-mode out-mode)
+    ((condp
+       (in-mode (valᵢ fᵢ) ...)
+       (out-mode (valₒ fₒ) ...)
+       (name g ...)
+       ...)
+     (let ([names `(name ...)]
+           [t* `(,(λ () (conj g ...)) ...)])
+       (lambda (S)
+         (let ([s (get-subst S)])
+           (let ([ins (append (fᵢ (walk* valᵢ s)) ...)])
+             (let ([suggs (if (memv 'use-out ins)
+                              (append ins (fₒ (walk* valₒ s)) ...)
+                              ins)])
+               (((call/new-scope) (prune names t* suggs)) S)))))))))
+
+(define (prune names t* suggs)
+  (match* (names t*)
+    [('() '()) fail]
+    [(`(,n . ,ns) `(,t . ,ts))
+     (let ([res (prune ns ts suggs)])
+       (if (memv n suggs)
+           (disj₂ (t) res)
+           res))]))
+|#
+
+
+(define-syntax new-condp
+  (syntax-rules ()
+    ((condp ((f-always val-always) ...) ((f-maybe val-maybe) ...) (g ...) ...)
+     (lambda (S)
+       (let ([s (get-subst S)])
+         (let ((psos (set-union (list->set (f-always (walk* val-always s))) ...)))
+           (let ((sos (if (set-member? psos 'use-maybe)
+                          (set-union psos (list->set (f-maybe (walk* val-maybe s))) ...)
+                          psos)))
+             (((call/new-scope)
+               (disjp2 0 sos `(,(lambda () (conj g ...)) ...)))
+              S))))))))
+
+(define (disjp2 n s t*)
+  (cond
+    ((null? t*) fail)
+    ((set-member? s n)
+     (disj₂ ((car t*)) (disjp2 (add1 n) s (cdr t*))))
+    (else (disjp2 (add1 n) s (cdr t*)))))
+
+
+(define
