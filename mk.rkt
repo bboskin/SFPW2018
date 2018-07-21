@@ -257,7 +257,7 @@
 
 
 ;; Version 1 – from the paper
-
+#|
 (define-syntax condp
   (syntax-rules ()
     ((condp ((f-in val-in) ...) ((f-out val-out) ...) (key g ...) ...)
@@ -275,21 +275,21 @@
      (if (memv 'n0 los)
          (disj2 (conj g0 ...) (disjp los ln ...))
          (disjp los ln ...)))))
-
+|#
 
 ;; Version 2 – uses disj rather than a recursive helper
 
-#|
+
 (define-syntax condp
   (syntax-rules ()
-    ((condp ((f-always val-always) ...) ((f-maybe val-maybe) ...) (name g ...) ...)
+    ((condp ((f-always val-always) ...) ((f-maybe val-maybe) ...) (key g ...) ...)
      (lambda (s)
        (let ((plos (append (f-always (walk* val-always s)) ...)))
          (let ((los (if (memv 'use-maybe plos)
                         (append plos (f-maybe (walk* val-maybe s)) ...)
                         plos)))
-           ((disj (if (memv 'name los) (conj g ...) fail) ...) s)))))))
-|#
+           ((disj (if (memv 'key los) (conj g ...) fail) ...) s)))))))
+
 
 
 ;; Version 3 - uses a helper function to do everything
