@@ -223,24 +223,13 @@
     (≡ Γ X from midₒ)
     (≡ Γ X midₒ to)))
 
-(defrel (use-switch exp)
-  (conde
-    [(symbolo exp)]
-    [(fresh (a d)
-       (== exp `(,a . ,d))
-       (=/= a 'same)
-       (=/= a 'λ)
-       (=/= a 'cons))]))
-
 (defrel (switch-expr Γ exp τ o)
   (fresh (t)
-    (use-switch exp)
     (synth Γ exp `(the ,t ,o))
     (≡-type Γ τ t)))
 
 (defrel (switch-τ Γ exp τ o)
   (fresh (t)
-    (use-switch exp)
     (≡-type Γ τ t)
     (synth Γ exp `(the ,t ,o))))
 

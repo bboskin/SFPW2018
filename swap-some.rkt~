@@ -1,0 +1,115 @@
+#lang racket
+(require "mk.rkt")
+
+(defrel (swap-some ls o)
+  (conde
+   ((== '() ls) (== '() o))
+   ((fresh (a d res)
+      (== `(,a . ,d) ls)
+      (== `(,a . ,res) o)
+      (swap-some d res)))
+   ((fresh (a d res)
+      (== `(,a . ,d) ls)
+      (== `(novel . ,res) o)
+      (swap-some d res)))))
+
+
+(define (ls-tags ls)
+  (cond
+    ((var? ls) '(use-maybe))
+    ((null? ls) '(BASE))
+    ((pair? ls) '(KEEP SWAP))
+    (else '())))
+
+(define (o-tags o)
+  (cond
+    ((var? o) '(BASE KEEP SWAP))
+    ((null? o) '(BASE))
+    ((pair? o)
+     (if (or (var? (car o))
+             (eqv? 'novel (car o)))
+         '(KEEP SWAP)
+         '(KEEP)))
+    (else '())))
+
+
+(defrel (swap-a-few-p ls o)
+  (condp
+   ((ls-tags ls))
+   ((o-tags o))
+   (BASE (== '() ls) (== '() o))
+   (KEEP (fresh (a d res)
+           (== `(,a . ,d) ls)
+           (== `(,a . ,res) o)
+           (swap-a-few-p d res)))
+   (SWAP (fresh (a d res)
+           (== `(,a . ,d) ls)
+           (== `(novel . ,res) o)
+           (swap-a-few-p d res)))))
+
+(run* (q) (swap-a-few-p q `(novel fish)))
+#;
+(run* (q) (swap-a-few q `(novel fish)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+
+(defrel (swap-someo ls o)
+  (conde
+   ((== '() ls) (== '() o))
+   ((fresh (a d res)
+      (== `(,a . ,d) ls)
+      (conde
+       ((== `(,a . ,res) o))
+       ((== `(novel . ,res) o)))
+      (swap-someo d res)))))
+
+(run* (q) (swap-someo q `(novel fish)))
+
+(define (ls-keys-outer ls)
+  (cond
+    ((var? ls) '(use-maybe))
+    ((null? ls) '(BASE))
+    ((pair? ls) '(REC))
+    (else '())))
+
+(define (o-keys-outer o)
+  (cond
+    ((var? o) '(BASE REC))
+    ((null? o) '(BASE))
+    ((pair? o) '(REC))
+    (else '())))
+
+;;;;;;
+
+(define (ls-keys-inner ls)
+  (cond
+    ((var? ls) '(use-maybe))
+    (else '(KEEP SWAP))))
+
+(define (o-keys-inner o)
+  (cond
+    ((var? o) '(KEEP SWAP))
+    ((pair? o)
+     (if (or (var? (car o))
+             (eqv? 'novel (car o)))
+         '(KEEP SWAP)
+         '(KEEP)))
+    (else '())))
+
+(defrel (swap-somep ls o)
+  (condp
+   ((ls-keys-outer ls))
+   ((o-keys-outer o))
+   (BASE (== '() ls) (== '() o))
+   (REC (fresh (a d res)
+          (== `(,a . ,d) ls)
+          (condp
+           ((ls-keys-inner ls))
+           ((o-keys-inner o))
+           (KEEP (== `(,a . ,res) o))
+           (SWAP (== `(novel . ,res) o)))
+          (swap-somep d res)))))
+
+
+(run* (q) (swap-somep q `(novel fish)))

@@ -5,7 +5,7 @@
 
 
 ;; First round of tests, without using claim/define
-
+#|
 (time
  (run 1 (q r) 
    (pie `((add1 (add1 ,q)))
@@ -41,12 +41,12 @@
                 (same (add1 (add1 zero)))))))
        q)))
 
-
+|#
 
 
 
 ; Second round of tests, performing more interesting syntheses
-
+#;
 (time
   (run 1 (f)
    (pie `((claim/define bar

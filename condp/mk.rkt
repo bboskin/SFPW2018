@@ -190,12 +190,6 @@
     [(disj g) g]
     [(disj g₀ g ...) (disj₂ g₀ (disj g ...))]))
 
-(define (disj* t*)
-  (cond
-    [(null? t*) fail]
-    [(null? (cdr t*)) ((car t*))]
-    [else (disj₂ ((car t*)) (disj* (cdr t*)))]))
-
 (define-syntax conj
   (syntax-rules ()
     [(conj) succeed]
@@ -396,62 +390,52 @@
          [(State s scp t neqs abs) b]))]))
 
 
-;; condp
-#;
-(define (add-all s x* v*)
-  (cond
-    [(null? x*) s]
-    [(not (Meta? (car x*)))
-     (add-all s (cdr x*) (cdr v*))]
-    [else (add-all (let ((s2 (ext-s (car x*) (car v*) s))) (if s2 s2 s))
-                   (cdr x*)
-                   (cdr v*))]))
-#;
-(define (append-suggs f* v*)
-  (cond
-    [(null? f*) '()]
-    [else (append ((car f*) (car v*))
-                  (append-suggs (cdr f*) (cdr v*)))]))
+;;; VERSIONS OF CONDP
 
-
-(define (append-all v* f*)
-  (cond
-    [(null? v*) '()]
-    [else (append ((car f*) (car v*))
-                  (append-all (cdr v*) (cdr f*)))]))
-
-
-(define (extend-all x* v* s)
-  (cond
-    [(null? x*) s]
-    [else (let ([new-s (if (var? (car v*))
-                           (ext-s (car x*) (car v*) s)
-                           (hash-set s (car x*) (car v*)))])
-            (extend-all (cdr x*) (cdr v*)
-                        (if new-s new-s s)))]))
-#;
-(define (extend-all x* v* s)
-  (cond
-    [(null? x*) s]
-    [else (let ([new-s (ext-s (car x*) (car v*) s)])
-            (extend-all (cdr x*) (cdr v*)
-                        (if new-s new-s s)))]))
-
-
-(define (replace-subst S s)
-  (match S
-    [(State s-old scp t neqs abs)
-     (State s     scp t neqs abs)]))
-
+;; Version 1 – from paper, uses a recursive macro helper
+#|
 (define-syntax disjp
   (syntax-rules ()
     ((disjp los) fail)
     ((disjp los (n0 g0 ...) ln ...)
-     (if (memv 'n0 los)
-         (disj₂ (conj g0 ...) (disjp los ln ...))
-         (disjp los ln ...)))))
+     (let ((g (disjp los ln ...)))
+       (if (memv 'n0 los)
+           (disj₂ (conj g0 ...) g)
+           g)))))
+
+(define-syntax condp
+  (syntax-rules ()
+    ((condp ((f-in val-in) ...) ((f-out val-out) ...) (key g ...) ...)
+     (lambda (S)
+       (let ([s (get-subst S)])
+         (((call/new-scope)
+           (let ((plos (append (f-in (walk* val-in s)) ...)))
+             (let ((los (if (memv 'use-maybe plos)
+                            (append plos (f-out (walk* val-out s)) ...)
+                            plos)))
+               (disjp los (key g ...) ...))))
+          S))))))
+|#
+;; Version 2 – no recursive macro, introduces fail
 
 
+(define-syntax condp
+  (syntax-rules ()
+    ((condp ((f-in val-in) ...) ((f-out val-out) ...) (key g ...) ...)
+     (lambda (S)
+       (let ([s (get-subst S)])
+         (((call/new-scope)
+           (let ((plos (append (f-in (walk* val-in s)) ...)))
+             (let ((los (if (memv 'use-maybe plos)
+                            (append plos (f-out (walk* val-out s)) ...)
+                            plos)))
+               (disj (if (memv 'key los) (conj g ...) fail) ...))))
+          S))))))
+
+
+;; Version 3 – uses a helper function for everything
+
+#|
 (define (disjp2 los k* g*)
   (cond
     ((null? k*) fail)
@@ -461,16 +445,20 @@
     (else
      (disjp2 los (cdr k*) (cdr g*)))))
 
+(define (append-all v* f*)
+  (cond
+    [(null? v*) '()]
+    [else (append ((car f*) (car v*))
+                  (append-all (cdr v*) (cdr f*)))]))
+
 (define (condp-s s f-in* f-out* v-in* v-out*)
-  (begin
-    ;(displayln "entering condp")
-    (let* ([v* (walk* v-in* s)]
-           [plos (append-all v* f-in*)]
-           [b (memv 'use-maybe plos)]
-           [v*2 (when b (walk* v-out* s))]
-           [plos2 (when b (append-all v*2 f-out*))]
-           [los (if b (append plos plos2) plos)])
-      los)))
+  (let* ([v* (walk* v-in* s)]
+         [plos (append-all v* f-in*)]
+         [b (memv 'use-maybe plos)]
+         [v*2 (when b (walk* v-out* s))]
+         [plos2 (when b (append-all v*2 f-out*))]
+         [los (if b (append plos plos2) plos)])
+    los))
 
 
 (define-syntax condp
@@ -489,62 +477,31 @@
            (disjp2 los `(key ...)  `(,(lambda () (conj g ...)) ...)))
           S))))))
 
-#;
+|#
+
+;; Version 4 – uses accumulator-passing style disj, so that
+;; the final disjunction doesn't contain any ifs
+
+
+#|
+(define (make-disj t*)
+  (cond
+    ((null? t*) fail)
+    (else (disj₂ ((car t*)) (make-disj (cdr t*))))))
+
+(define (disjp3 los keys t* acc)
+  (cond
+    ((null? keys) (make-disj acc))
+    ((memv (car keys) los)
+     (disjp3 los (cdr keys) (cdr t*)
+             (cons (car t*) acc)))
+    (else
+     (disjp3 los (cdr keys) (cdr t*) acc))))
+
+
 (define-syntax condp
   (syntax-rules ()
-    ((condp ((f-in var-in) ...) ((f-out var-out) ...) (key g ...) ...)
-     (lambda (S)
-       (let* ((s (get-subst S))
-              (v* (walk* `(,var-in ...) s))
-              (ps (add-all s `(,var-in ...) v*))
-              (_ (displayln v*))
-              (ulos (append-suggs `(,f-in ...) v*))
-              ;;;;;;;;;;
-              (b (memv 'use-maybe ulos))
-              (v*2 (when b (walk* `(,var-in ...) ps)))
-              (los (if b (append (append-suggs `(,f-out ...) v*2) ulos) ulos))
-              #;(s (if b (add-all ps `(,var-out ...) v*2) ps))
-              )
-         (((call/new-scope)
-           (disj (if (memv 'key los) (conj g ...) fail) ...))
-          (replace-subst S s)))))))
-
-
-
-
-#;
-(define-syntax condp
-  (syntax-rules ()
-    ((condp ((f-in val-in) ...) ((f-out val-out) ...) (name g ...) ...)
-     (lambda (S)
-       (let ([s (get-subst S)])
-         (let* ([vs `(,(walk* val-in s) ...)]
-                [ps (add-all (list val-in ...) s vs)])
-           (let* ((plos (foldr (lambda (f v ans) (append (f v) ans))
-                               '()
-                               (list f-in ...) vs))
-                  (b (memv 'use-maybe plos)))
-               (let* ((vs2 (if b `(,(walk* val-out s) ...) '()))
-                      (los (if b
-                               (append plos
-                                       (foldr (lambda (f v ans)
-                                                (append (f v) ans))
-                                              '()
-                                              (list f-out ...) vs2))
-                               plos))
-                      (ps2 (if (not b)
-                               ps
-                               (add-all (list val-out ...) s vs2))))
-                 (((call/new-scope)
-                   (disj (if (memv 'name los) (conj g ...) fail) ...))
-                  (replace-subst S ps2))))))))))
-
-
-
-#;
-(define-syntax condp
-  (syntax-rules ()
-    ((condp ((f-in val-in) ...) ((f-out val-out) ...) (name g ...) ...)
+    ((condp ((f-in val-in) ...) ((f-out val-out) ...) (key g ...) ...)
      (lambda (S)
        (let ([s (get-subst S)])
          (((call/new-scope)
@@ -552,5 +509,6 @@
              (let ((los (if (memv 'use-maybe plos)
                             (append plos (f-out (walk* val-out s)) ...)
                             plos)))
-               (disj (if (memv 'name los) (conj g ...) fail) ...))))
+               (disjp3 los `(key ...) `(,(λ () (conj g ...)) ...) '()))))
           S))))))
+    |#

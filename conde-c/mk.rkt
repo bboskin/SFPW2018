@@ -3,7 +3,7 @@
 
 
 (provide defrel
-         conde conda condu condp condpify
+         conde conda condu
          fresh
          run run*
          == =/= absento numbero symbolo
@@ -394,45 +394,3 @@
        (match S
          [(State s scp t neqs abs) b]))]))
 
-
-;; condp
-
-(define-syntax condp
-  (syntax-rules ()
-    ((condp ((f-in val-in) ...) ((f-out val-out) ...) (name g ...) ...)
-     (lambda (S)
-       (let ([s (get-subst S)])
-         (((call/new-scope)
-           (let ((plos (append (f-in (walk* val-in s)) ...)))
-             (let ((los (if (memv 'use-out plos)
-                            (append plos (f-out (walk* val-out s)) ...)
-                            plos)))
-               (disj (if (memv 'name los) (conj g ...) fail) ...))))
-          S))))))
-
-
-;;; condpify
-
-(define (stop? p? x v*)
-  (let ([v (assv x v*)])
-    (if v (p? (cdr v)) #f)))
-
-(define-syntax disjp-auto
-  (syntax-rules (stop-if)
-    ((disjp-auto v* ()) fail)
-    ((disjp-auto v* (((stop-if (p? x) ...) g ...) ln ...))
-     (if (or (stop? p? x v*) ...)
-         (disjp-auto v* (ln ...))
-         (disj₂ (conj g ...) (disjp-auto v* (ln ...)))))
-    ((disjp-auto v* ((g0 g ...) ln ...))
-     (disj₂ (conj g0 g ...) (disjp-auto v* (ln ...))))))
-
-(define-syntax condpify
-  (syntax-rules ()
-    ((condpify (x ...) (g0 g ...) ...)
-     (lambda (S)
-       (let ([s (get-subst S)])
-         (let ([v* `((,x . ,(walk* x s)) ...)])
-           (((call/new-scope)
-             (disjp-auto v* ((g0 g ...) ...)))
-            S)))))))
