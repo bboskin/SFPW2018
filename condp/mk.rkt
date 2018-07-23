@@ -392,7 +392,23 @@
 
 ;;; VERSIONS OF CONDP
 
-;; Version 1 – from paper, uses a recursive macro helper
+;; Version 1 – form paper, no recursive macro, introduces fail
+
+
+(define-syntax condp
+  (syntax-rules ()
+    ((condp ((f-in val-in) ...) ((f-out val-out) ...) (key g ...) ...)
+     (lambda (S)
+       (let ([s (get-subst S)])
+         (((call/new-scope)
+           (let ((plos (append (f-in (walk* val-in s)) ...)))
+             (let ((los (if (memv 'use-maybe plos)
+                            (append plos (f-out (walk* val-out s)) ...)
+                            plos)))
+               (disj (if (memv 'key los) (conj g ...) fail) ...))))
+          S))))))
+
+;; Version 2 – uses a recursive macro helper
 #|
 (define-syntax disjp
   (syntax-rules ()
@@ -416,22 +432,6 @@
                (disjp los (key g ...) ...))))
           S))))))
 |#
-;; Version 2 – no recursive macro, introduces fail
-
-
-(define-syntax condp
-  (syntax-rules ()
-    ((condp ((f-in val-in) ...) ((f-out val-out) ...) (key g ...) ...)
-     (lambda (S)
-       (let ([s (get-subst S)])
-         (((call/new-scope)
-           (let ((plos (append (f-in (walk* val-in s)) ...)))
-             (let ((los (if (memv 'use-maybe plos)
-                            (append plos (f-out (walk* val-out s)) ...)
-                            plos)))
-               (disj (if (memv 'key los) (conj g ...) fail) ...))))
-          S))))))
-
 
 ;; Version 3 – uses a helper function for everything
 
