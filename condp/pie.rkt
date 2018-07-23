@@ -5,7 +5,7 @@
          "normalize.rkt"
          "mk.rkt")
 ;; A main program, with defines and check-same
-(provide pie)
+(provide pieᵒ)
 
 (defrel (run-pie Γ prog o)
   (conde
@@ -40,5 +40,5 @@
             (run-pie Γ d o^))]))]
     [(== prog '()) (== o '())]))
 
-(defrel (pie p o)
+(defrel (pieᵒ p o)
   (run-pie '() p o))
