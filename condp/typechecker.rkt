@@ -167,8 +167,8 @@
 
 (defrel (synth Γ exp o)
   (condp
-    ((synth-exp-table exp))
-    ((synth-out-table o))
+    (((synth-exp-table exp))
+     ((synth-out-table o)))
     [var (synth-var Γ exp o)] ;; Hypothesis
     [the (synth-the Γ exp o)] ;; The
     [Atom ((synth-simple 'Atom 'U) Γ exp o)] ;; UI-1    
@@ -237,21 +237,19 @@
 
 (define check-forms '(same λ cons))
 
-(define (check-maybe-table₂ e)
+(define (check-o-table e)
   (match e
     [(? var?) '(same λ cons switch-expr)]
     [(? (exp-memv? check-forms)) `(,(car e) switch-τ)]
     [else '(switch-τ)]))
 
-(define (check-maybe-table pr)
-  (let ([τ (car pr)]
-        [exprᵉ (cdr pr)])
-    (match τ
-      [`(= ,X ,from ,to) '(switch-τ same)]
-      [`(Π ((,x ,A)) ,R) '(switch-τ λ)]
-      [`(Σ ((,x ,A)) ,D) '(switch-τ cons)]
-      [(? var?) (check-maybe-table₂ exprᵉ)]
-      [else '(switch-τ)])))
+(define (check-τ-table τ)
+  (match τ
+    [`(= ,X ,from ,to) '(switch-τ same)]
+    [`(Π ((,x ,A)) ,R) '(switch-τ λ)]
+    [`(Σ ((,x ,A)) ,D) '(switch-τ cons)]
+    [(? var?) '(use-maybe)]
+    [else '(switch-τ)]))
 
 (define (check-expr-table exp)
   (match exp
@@ -262,10 +260,10 @@
 
 (defrel (check Γ exp τ o)
   (fresh (v)
-    (== v `(,τ . ,o))
     (condp
-       ((check-expr-table exp))
-       ((check-maybe-table v))
+       (((check-expr-table exp))
+        ((check-τ-table τ))
+        ((check-o-table o)))
       [cons (check-cons Γ exp τ o)] ;; ΣI
       [λ (check-λ Γ exp τ o)] ;; FunI-1
       [same (check-= Γ exp τ o)] ;; EqI
@@ -308,7 +306,7 @@
 
 (defrel (type Γ τ o)
   (condp
-    ((type-table τ)) ()
+    (((type-table τ)))
     [U (type-id 'U τ o)] ;; UF
     [Nat (type-id 'Nat τ o)] ;; NatF
     [Atom (type-id 'Atom τ o)] ;; AtomF
@@ -356,8 +354,8 @@
 
 (defrel (≡-type Γ e1 e2)
   (condp
-    ((≡-type-table e1)
-     (≡-type-table e2)) ()
+    (((≡-type-table e1)
+      (≡-type-table e2)))
     [U (≡-type-id 'U e1 e2)] ;; USame-U
     [Nat (≡-type-id 'Nat e1 e2)] ;; NatSame-Nat
     [Atom (≡-type-id 'Atom e1 e2)] ;; AtomSame-Atom
@@ -684,8 +682,8 @@
 
 (defrel (≡ Γ τ e1 e2)
   (condp
-    ((≡-table/e `(,e1 . ,e2)))
-    ((≡-table/τ τ))
+    (((≡-table/e `(,e1 . ,e2)))
+     ((≡-table/τ τ)))
     [var (≡-var Γ τ e1 e2)] ;; Hypothesis-Same
     [the (≡-the Γ τ e1 e2)] ;; The
     [Trivial (≡-symbol 'Trivial 'U e1 e2 τ)] ;; USame-Trivial

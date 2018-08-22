@@ -93,8 +93,7 @@
 
 (defrel (free-vars exp vs)
   (condp
-    ((free-vars-table exp))
-    ()
+    (((free-vars-table exp)))
     [var (conde
            [(non-reserved-Pie-symbol exp) (== vs `(,exp))]
            [(reserved-Pie-symbol exp) (== vs '())])]
@@ -219,8 +218,8 @@
 
 (defrel (substo a x exp o)
   (condp
-    ((subst-in-table exp))
-    ((subst-out-table o))
+    (((subst-in-table exp))
+     ((subst-out-table o)))
     [here (== exp x) (== o a)]
     [sym (symbolo exp) (=/= exp x) (== exp o)]
     [quote (subst-atom exp o)]

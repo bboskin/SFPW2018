@@ -39,8 +39,8 @@
 
 (defrel (swap-someᵖ ls o)
   (condp
-   ((ls-keys ls))
-   ((o-keys o))
+   (((ls-keys ls))
+    ((o-keys o)))
    (BASE (== '() ls) (== '() o))
    (KEEP (fresh (a d res)
            (== `(,a . ,d) ls)
@@ -105,18 +105,18 @@
 
 (defrel (swap-someᵖ₂ ls o)
   (condp
-   ((ls-keys-outer ls))
-   ((o-keys-outer o))
+   (((ls-keys-outer ls))
+    ((o-keys-outer o)))
    (BASE (== '() ls) (== '() o))
    (REC (fresh (a d res)
           (== `(,a . ,d) ls)
           (condp
-           ((ls-keys-inner ls))
-           ((o-keys-inner o))
+           (((ls-keys-inner ls))
+            ((o-keys-inner o)))
            (KEEP (== `(,a . ,res) o))
            (SWAP (== `(novel . ,res) o)))
           (swap-someᵖ₂ d res)))))
 
-#;
+
 (equal? (run* (q) (swap-someᵒ₂ q `(novel fish)))
         (run* (q) (swap-someᵖ₂ q `(novel fish))))

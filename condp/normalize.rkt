@@ -213,8 +213,8 @@
 
 (defrel (valofo ρ exp v)
   (condp
-    ((valofo-in exp))
-    ((valofo-out v))
+    (((valofo-in exp))
+     ((valofo-out v)))
     ; The expressions
     [the (valof-the ρ exp v)]
     [zero (assign-simple 'zero 'ZERO exp v)]
@@ -351,9 +351,9 @@
 
 (defrel (read-backo Γ τ v norm)
   (condp
-    ((read-back-v v)
-     (read-back-τ τ))
-    ((read-back-norm norm))
+    (((read-back-v v)
+      (read-back-τ τ))
+     ((read-back-norm norm)))
     ;; Types
     [U (go-to-type Γ τ v norm)]
     ;; The
@@ -420,8 +420,8 @@
 
 (defrel (read-back-typo Γ v norm)
   (condp
-    ((RBT-v v))
-    ((RBT-n norm))
+    (((RBT-v v))
+     ((RBT-n norm)))
     [ATOM (assign-simple 'ATOM 'Atom v norm)]
     [NAT (assign-simple 'NAT 'Nat v norm)]
     [UNIVERSE (assign-simple 'UNIVERSE 'U v norm)]
@@ -500,7 +500,7 @@
 
 (defrel (read-back-neutral τ Γ ne norm)
   (condp
-    ((RBN-ne ne)) ()
+    (((RBN-ne ne)))
     [VAR (RBN-var ne norm)]
     [CAR (RBN-car τ Γ ne norm)]
     [CDR (RBN-cdr τ Γ ne norm)]
